@@ -1,0 +1,23 @@
+[package]
+name = "bevy-supabase"
+version = "0.1.0"
+edition = "2021"
+categories = ["database"]
+description = "supabase plugin for the bevy game engine"
+exclude = ["crates/"]
+keywords = ["game", "database", "gamedev", "supabase", "bevy"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/bytemunch/bevy-supabase"
+homepage = "https://github.com/bytemunch/bevy-supabase"
+documentation = "https://docs.rs/bevy-supabase"
+
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[dev-dependencies]
+bevy = "0.12.1"
+bevy-supabase-realtime = {version = "0.1.0", path = "./crates/bevy-supabase-realtime"}
+serde_json = "1.0.113"
+tokio = {version = "1.36.0", features = ["sync"]}

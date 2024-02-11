@@ -1,0 +1,17 @@
+[package]
+name = "bevy-supabase-realtime"
+version = "0.1.0"
+edition = "2021"
+description = "bevy plugin for supabase realtime integration"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "supabase", "game", "messaging"]
+repository = "https://github.com/bytemunch/bevy-supabase"
+homepage = "https://github.com/bytemunch/bevy-supabase"
+readme = "README.md"
+documentation = "https://docs.rs/bevy-supabase-realtime"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.12.1"
+realtime-rs = {git = "https://github.com/bytemunch/realtime-rs.git"}
