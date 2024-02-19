@@ -17,7 +17,7 @@ members = ["crates/*"]
 resolver = "2"
 
 [dev-dependencies]
-bevy = "0.12.1"
+bevy = "0.13.0"
 bevy-supabase-realtime = {version = "0.1.0", path = "./crates/bevy-supabase-realtime"}
 serde_json = "1.0.113"
 tokio = {version = "1.36.0", features = ["sync"]}

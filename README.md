@@ -10,7 +10,7 @@ Auth users with login providers, maintain player settings across devices, displa
 
 ## Compatibility
 
-| Bevy         | Bevy-Supabase |
+| bevy         | bevy-supabase |
 | ------------ | ------------- |
-| 0.12.x       | 0.1.0         |
+| 0.13.x       | 0.1.0         |
 
