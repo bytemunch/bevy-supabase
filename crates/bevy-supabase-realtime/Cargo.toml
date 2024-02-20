@@ -17,3 +17,4 @@ bevy = "0.13.0"
 realtime-rs = {git = "https://github.com/bytemunch/realtime-rs.git"}
 serde_json = "1.0.113"
 tokio = { version = "1.36.0", features = ["sync"] }
+bevy-supabase-auth = {path = "../bevy-supabase-auth/"}

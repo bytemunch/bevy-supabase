@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.13.0"
-go_true = {git = "https://github.com/bytemunch/gotrue-rs.git", branch = "provider-signin"}
+go_true = {git = "https://github.com/bytemunch/gotrue-rs.git", branch = "bevy-fixes"}
+tokio = { version = "1.36.0", features = ["rt"] }

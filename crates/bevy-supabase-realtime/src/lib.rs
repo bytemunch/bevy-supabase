@@ -4,6 +4,7 @@ pub mod presence;
 
 use bevy::prelude::*;
 
+use bevy_supabase_auth::AuthSession;
 pub use realtime_rs::{message::*, realtime_channel::*, realtime_client::*};
 use tokio::sync::mpsc::{self, Receiver};
 
@@ -81,8 +82,18 @@ impl Plugin for RealtimePlugin {
         app.insert_resource(Client(self.client.clone()))
             .add_systems(
                 Update,
-                (update_presence_track, presence_untrack, build_channels).chain(),
+                (
+                    (update_presence_track, presence_untrack, build_channels).chain(),
+                    update_client_access_token.run_if(resource_exists_and_changed::<AuthSession>),
+                ),
             );
         println!("We plugged in");
     }
+}
+
+fn update_client_access_token(client: Res<Client>, auth: Res<AuthSession>) {
+    client
+        .0
+        .set_access_token(auth.0.access_token.clone())
+        .unwrap();
 }
