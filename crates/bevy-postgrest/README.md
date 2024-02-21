@@ -1,7 +1,7 @@
-# Bevy Supabase Realtime
+# Bevy Postgrest
 
 ## Compatibility
 
-| bevy         | bevy-supabase-realtime |
+| bevy         | bevy-postgrest |
 | ------------ | ------------- |
 | 0.13.x       | 0.1.0         |

@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_supabase_auth::{AuthClient, AuthPlugin, AuthSession, EmailOrPhone};
-use bevy_supabase_postgrest::{Client, PostgresRequest, PostgresResponse, PostgrestPlugin};
+use bevy_gotrue::{AuthClient, AuthPlugin, AuthSession, EmailOrPhone};
+use bevy_postgrest::{Client, PostgresRequest, PostgresResponse, PostgrestPlugin};
 
 #[derive(Resource)]
 pub struct TestTimer(pub Timer);

@@ -323,17 +323,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy-supabase"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy-supabase-realtime",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "bevy-supabase-auth"
+name = "bevy-gotrue"
 version = "0.1.0"
 dependencies = [
  "bevy",
@@ -342,23 +332,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy-supabase-postgrest"
+name = "bevy-postgrest"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "bevy-supabase-auth",
+ "bevy-gotrue",
  "postgrest",
  "reqwest",
  "tokio",
 ]
 
 [[package]]
-name = "bevy-supabase-realtime"
+name = "bevy-realtime"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "bevy-supabase-auth",
+ "bevy-gotrue",
  "realtime-rs",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "bevy-supabase"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy-realtime",
  "serde_json",
  "tokio",
 ]

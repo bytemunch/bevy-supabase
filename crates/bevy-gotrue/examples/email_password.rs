@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_supabase_auth::{AuthClient, AuthPlugin};
+use bevy_gotrue::{AuthClient, AuthPlugin};
 
 fn main() {
     let mut app = App::new();

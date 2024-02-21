@@ -1,5 +1,5 @@
 [package]
-name = "bevy-supabase-postgrest"
+name = "bevy-gotrue"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,5 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.13.0"
-postgrest = "1.6.0"
+go_true = {git = "https://github.com/bytemunch/gotrue-rs.git", branch = "bevy-fixes"}
 tokio = { version = "1.36.0", features = ["rt"] }
-bevy-supabase-auth = {path = "../bevy-supabase-auth/"}
-reqwest = "0.11.24"
-

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::Duration};
 
 use bevy::prelude::*;
-use bevy_supabase_realtime::{
+use bevy_realtime::{
     payload::PresenceConfig,
     presence::{
         AppExtend as _, PrescenceTrack, PresenceEvent, PresenceForwarder, PresencePayloadEvent,

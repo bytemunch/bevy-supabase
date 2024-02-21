@@ -1,7 +1,7 @@
-# Bevy Supabase Auth
+# Bevy Gotrue
 
 ## Compatibility
 
-| bevy         | bevy-supabase-auth |
+| bevy         | bevy-gotrue |
 | ------------ | ------------- |
 | 0.13.x       | 0.1.0         |

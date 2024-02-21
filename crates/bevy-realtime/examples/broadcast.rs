@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::Duration};
 
 use bevy::prelude::*;
-use bevy_supabase_realtime::{
+use bevy_realtime::{
     broadcast::{AppExtend as _, BroadcastForwarder, BroadcastPayloadEvent},
     payload::{BroadcastConfig, BroadcastPayload},
     BuildChannel, Channel, ChannelBuilder, Client, RealtimeClientBuilder, RealtimePlugin,

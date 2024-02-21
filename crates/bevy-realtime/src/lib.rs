@@ -4,7 +4,7 @@ pub mod presence;
 
 use bevy::prelude::*;
 
-use bevy_supabase_auth::AuthSession;
+use bevy_gotrue::AuthSession;
 pub use realtime_rs::{message::*, realtime_channel::*, realtime_client::*};
 use tokio::sync::mpsc::{self, Receiver};
 
