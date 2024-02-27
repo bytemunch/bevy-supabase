@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_gotrue::{AuthClient, AuthCreds, AuthPlugin, Session};
+use bevy_gotrue::{Api, AuthPlugin, Session};
 use bevy_http_client::HttpClientPlugin;
 
 fn main() {
@@ -15,12 +15,9 @@ fn main() {
         .run()
 }
 
-fn do_login(mut commands: Commands, client: Res<AuthClient>) {
-    let creds = AuthCreds {
-        id: "test@example.com".into(),
-        password: "password".into(),
-    };
-    commands.run_system_with_input(client.sign_in, creds);
+fn do_login(api: Res<Api>) {
+    let g = api.get_url_for_provider("google");
+    println!("\n[LOGIN]\nGo to this URL to sign in: \n{}\n", g);
 }
 
 fn did_login(session: Res<Session>) {
