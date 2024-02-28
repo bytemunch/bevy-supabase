@@ -7,8 +7,10 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.13.0"
-postgrest = "1.6.0"
-tokio = { version = "1.36.0", features = ["rt"] }
 bevy-gotrue = {path = "../bevy-gotrue/"}
-reqwest = "0.11.24"
+bevy_http_client = {git = "https://github.com/bytemunch/bevy_http_client.git", branch="typed_error_handling"}
+ehttp = "0.5.0"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+url = "2.5.0"
 

@@ -1,7 +1,12 @@
+pub mod api;
+pub mod builder;
+pub mod filter;
+
 use std::marker::PhantomData;
 
+use api::Postgrest;
 use bevy::prelude::*;
-use postgrest::*;
+use builder::Builder;
 
 pub trait AppExtend {
     fn add_postgrest_event<T: Event + ResponseEvent>(&mut self) -> &mut Self;
@@ -11,17 +16,8 @@ impl AppExtend for App {
     fn add_postgrest_event<T: Event + ResponseEvent>(&mut self) -> &mut Self {
         self.add_event::<T>()
             .add_event::<PostgresRequest<T>>()
-            .add_systems(
-                Update,
-                (send_postgres_requests::<T>, read_postgres_responses::<T>),
-            )
+            .add_systems(Update, (send_postgres_requests::<T>,))
     }
-}
-
-#[derive(Resource)]
-pub struct Client {
-    pub client: Postgrest,
-    rt: tokio::runtime::Runtime,
 }
 
 #[derive(Event)]
@@ -63,50 +59,49 @@ pub struct PostgrestPlugin {
     pub endpoint: String,
 }
 
+impl PostgrestPlugin {
+    pub fn new(endpoint: String) -> Self {
+        Self { endpoint }
+    }
+}
+
 impl Plugin for PostgrestPlugin {
     fn build(&self, app: &mut App) {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let client = Postgrest::new(self.endpoint.clone());
-
-        app.insert_resource(Client { client, rt })
-            .add_systems(
-                Update,
-                (
-                    send_postgres_requests::<PostgresResponse>,
-                    read_postgres_responses::<PostgresResponse>,
-                ),
-            )
+        // TODO build + add api resource
+        app.insert_resource(Postgrest::new(self.endpoint.clone()))
+            .add_systems(Update, (send_postgres_requests::<PostgresResponse>,))
             .add_event::<PostgresResponse>()
             .add_event::<PostgresRequest<PostgresResponse>>();
     }
 }
 
-fn send_postgres_requests<T: Event + ResponseEvent>(
-    mut evr: EventReader<PostgresRequest<T>>,
-    client: Res<Client>,
-    mut evw: EventWriter<T>,
-) {
-    client.rt.block_on(async move {
-        for ev in evr.read() {
-            match ev.req.clone().execute().await {
-                Ok(res) => {
-                    evw.send(T::new(
-                        res.text().await.expect("Bro tried to string im dead"),
-                    ));
-                }
-                Err(e) => {
-                    println!("Response is error: {:?}", e)
-                }
-            }
+pub fn send_request<T: Event + ResponseEvent>(In(req): In<Builder>, mut evw: EventWriter<T>) {
+    match req.execute() {
+        Ok(res) => {
+            evw.send(T::new(
+                res.text().expect("Bro tried to string im dead").into(),
+            ));
         }
-    });
+        Err(e) => {
+            println!("Response is error: {:?}", e)
+        }
+    }
 }
 
-fn read_postgres_responses<T: ResponseEvent + Event>(mut evr: EventReader<T>) {
+fn send_postgres_requests<T: Event + ResponseEvent>(
+    mut evr: EventReader<PostgresRequest<T>>,
+    mut evw: EventWriter<T>,
+) {
     for ev in evr.read() {
-        println!("{:?}", ev.get_res());
+        match ev.req.clone().execute() {
+            Ok(res) => {
+                evw.send(T::new(
+                    res.text().expect("Bro tried to string im dead").into(),
+                ));
+            }
+            Err(e) => {
+                println!("Response is error: {:?}", e)
+            }
+        }
     }
 }
