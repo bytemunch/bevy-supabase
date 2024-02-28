@@ -92,7 +92,6 @@ impl Plugin for AuthPlugin {
         let api = Api::new(self.endpoint.clone());
 
         app.insert_resource(api)
-            //.add_plugins(HttpClientPlugin) // TODO conditional add if not already?
             .add_systems(PreStartup, (setup, start_provider_server))
             .add_systems(
                 Update,
