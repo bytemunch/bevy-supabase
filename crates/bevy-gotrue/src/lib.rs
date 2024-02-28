@@ -14,8 +14,18 @@ use bevy::utils::HashMap;
 use bevy_http_client::prelude::{
     HttpTypedRequestTrait, TypedRequest, TypedResponse, TypedResponseError,
 };
+use bevy_http_client::HttpClient;
 use serde::Deserialize;
 use serde_json::Value;
+
+#[derive(Debug, Resource, Deserialize, Clone)]
+pub struct Session {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: i32,
+    pub refresh_token: String,
+    pub user: User,
+}
 
 #[derive(Debug, Resource, Deserialize, Default, Clone)]
 pub struct User {
@@ -28,15 +38,6 @@ pub struct User {
     pub last_sign_in_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
-}
-
-#[derive(Debug, Resource, Deserialize, Clone)]
-pub struct Session {
-    pub access_token: String,
-    pub token_type: String,
-    pub expires_in: i32,
-    pub refresh_token: String,
-    pub user: User,
 }
 
 #[derive(Debug, Resource)]
@@ -57,11 +58,6 @@ pub struct UserUpdate {
     pub email_change_sent_at: String,
     pub created_at: String,
     pub updated_at: String,
-}
-
-#[derive(Debug)]
-pub enum AuthError {
-    CatchAllPleaseMakeMeMoreSpecific,
 }
 
 #[derive(Resource, Clone)]
@@ -197,7 +193,7 @@ pub fn start_provider_server(mut commands: Commands) {
         let token_type = "JWT".to_string();
         let expires_in:i32 = params.get("expires_in").unwrap_or(&"3600".to_string()).clone().parse().unwrap();
 
-        let sesh = Session {
+        let session = Session {
             access_token,
             refresh_token,
             token_type,
@@ -205,7 +201,7 @@ pub fn start_provider_server(mut commands: Commands) {
             user: User::default(),
         };
 
-        Ok(sesh)
+        Ok(session)
     });
 
     commands.insert_resource(ProviderListener(task));
@@ -224,9 +220,9 @@ pub fn sign_in(
     auth: Res<Api>,
     mut evw: EventWriter<TypedRequest<Session>>,
 ) {
-    let req = auth
-        .sign_in(api::EmailOrPhone::Email(creds.id), creds.password)
-        .with_type::<Session>();
+    let req = auth.sign_in(api::EmailOrPhone::Email(creds.id), creds.password);
+
+    let req = HttpClient::new().request(req).with_type::<Session>();
     evw.send(req);
 }
 
@@ -240,28 +236,5 @@ pub fn sign_in_recv(mut evr: EventReader<TypedResponse<Session>>, mut commands: 
 pub fn sign_in_err(mut evr: EventReader<TypedResponseError<Session>>) {
     for err in evr.read() {
         println!("Login error: {:?}", err);
-    }
-}
-
-#[derive(Component)]
-pub struct AsyncTaskWithCallback<T>
-where
-    T: Send + Sync,
-{
-    task: Task<T>,
-    callback: SystemId<T>,
-}
-
-pub fn trigger_task_callbacks<T>(
-    mut commands: Commands,
-    mut q: Query<(Entity, &mut AsyncTaskWithCallback<T>)>,
-) where
-    T: Send + Sync + 'static,
-{
-    for (e, mut t) in q.iter_mut() {
-        if let Some(result) = block_on(future::poll_once(&mut t.task)) {
-            commands.run_system_with_input(t.callback, result);
-            commands.entity(e).remove::<AsyncTaskWithCallback<T>>();
-        }
     }
 }
