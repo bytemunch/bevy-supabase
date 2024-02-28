@@ -1,32 +1,23 @@
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, time::common_conditions::on_timer};
 use bevy_gotrue::{AuthClient, AuthCreds, AuthPlugin, Session};
-use bevy_http_client::HttpClientPlugin;
-use bevy_postgrest::{api::Postgrest, AppExtend, PostgresRequest, PostgrestPlugin, ResponseEvent};
+use bevy_http_client::{
+    prelude::{HttpTypedRequestTrait, TypedRequest, TypedResponse, TypedResponseError},
+    HttpClient, HttpClientPlugin,
+};
+use bevy_postgrest::{api::Postgrest, PostgrestPlugin};
+use serde::Deserialize;
+use serde_json::Value;
 
-#[derive(Resource)]
-pub struct TestTimer(pub Timer);
-
-#[derive(Event, Debug)]
+#[allow(dead_code)]
+#[derive(Event, Debug, Deserialize)]
 pub struct MyPostgresResponse {
-    res: String,
+    res: Value,
 }
-
-impl ResponseEvent for MyPostgresResponse {
-    fn new(res: String) -> Self {
-        Self { res }
-    }
-
-    fn get_res(&self) -> String {
-        self.res.clone()
-    }
-}
-
-pub type MyPostgresRequest = PostgresRequest<MyPostgresResponse>;
 
 fn main() {
-    let endpoint = "http://127.0.0.1:54321/rest/v1/".into();
+    let endpoint = "http://127.0.0.1:54321/rest/v1".into();
 
     let mut app = App::new();
 
@@ -40,21 +31,17 @@ fn main() {
         .add_systems(
             Update,
             (
-                send_every_second,
-                read_postgres_responses::<MyPostgresResponse>,
+                send_every_second.run_if(on_timer(Duration::from_secs(1))),
+                postgres_recv,
+                postgres_err,
             ),
         )
-        .add_postgrest_event::<MyPostgresResponse>();
+        .register_request_type::<MyPostgresResponse>();
 
     app.run()
 }
 
 fn setup(mut commands: Commands, auth: Res<AuthClient>) {
-    commands.insert_resource(TestTimer(Timer::new(
-        Duration::from_secs(1),
-        TimerMode::Repeating,
-    )));
-
     auth.sign_in(
         &mut commands,
         AuthCreds {
@@ -65,27 +52,33 @@ fn setup(mut commands: Commands, auth: Res<AuthClient>) {
 }
 
 fn send_every_second(
-    mut timer: ResMut<TestTimer>,
-    time: Res<Time>,
     client: Res<Postgrest>,
-    mut evw: EventWriter<MyPostgresRequest>,
+    mut evw: EventWriter<TypedRequest<MyPostgresResponse>>,
     auth: Option<Res<Session>>,
 ) {
-    timer.0.tick(time.delta());
-    if !timer.0.just_finished() {
-        return;
-    }
     let mut req = client.from("todos").select("*");
 
     if let Some(auth) = auth {
         req = req.auth(auth.access_token.clone());
     }
 
-    evw.send(MyPostgresRequest::new(req));
+    let req = req.build();
+
+    let req = HttpClient::new()
+        .request(req)
+        .with_type::<MyPostgresResponse>();
+
+    evw.send(req);
 }
 
-fn read_postgres_responses<T: ResponseEvent + Event>(mut evr: EventReader<T>) {
+fn postgres_recv(mut evr: EventReader<TypedResponse<MyPostgresResponse>>) {
     for ev in evr.read() {
-        println!("{:?}", ev.get_res());
+        println!("[RECV] {:?}", ev);
+    }
+}
+
+fn postgres_err(mut evr: EventReader<TypedResponseError<MyPostgresResponse>>) {
+    for ev in evr.read() {
+        println!("[ERR] {:?}", ev);
     }
 }
