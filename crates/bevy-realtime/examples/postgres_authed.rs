@@ -1,12 +1,12 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_gotrue::{AuthClient, AuthPlugin, EmailOrPhone};
+use bevy_gotrue::{AuthClient, AuthCreds, AuthPlugin};
 use bevy_realtime::{
     payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
     postgres_changes::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
-    BuildChannel, ChannelBuilder, Client, PostgresChangeFilter, RealtimeClientBuilder,
-    RealtimePlugin,
+    BuildChannel, ChannelBuilder, Client as RealtimeClient, PostgresChangeFilter,
+    RealtimeClientBuilder, RealtimePlugin,
 };
 
 #[allow(dead_code)]
@@ -48,15 +48,16 @@ fn main() {
     app.run()
 }
 
-fn setup(mut commands: Commands, mut client: ResMut<Client>, mut auth: ResMut<AuthClient>) {
+fn setup(mut commands: Commands, mut client: ResMut<RealtimeClient>, auth: Res<AuthClient>) {
     commands.spawn(Camera2dBundle::default());
 
     auth.sign_in(
         &mut commands,
-        EmailOrPhone::Email("test@example.com".into()),
-        "password".into(),
-    )
-    .unwrap();
+        AuthCreds {
+            id: "test@example.com".into(),
+            password: "password".into(),
+        },
+    );
 
     let mut channel = client.channel("test");
 

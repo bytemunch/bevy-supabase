@@ -4,7 +4,7 @@ pub mod presence;
 
 use bevy::prelude::*;
 
-use bevy_gotrue::AuthSession;
+use bevy_gotrue::Session;
 pub use realtime_rs::{message::*, realtime_channel::*, realtime_client::*};
 use tokio::sync::mpsc::{self, Receiver};
 
@@ -77,6 +77,15 @@ pub struct RealtimePlugin {
     pub client: ClientManagerSync,
 }
 
+impl RealtimePlugin {
+    pub fn new(endpoint: String, apikey: String) -> Self {
+        let client = RealtimeClientBuilder::new(endpoint, apikey)
+            .connect()
+            .to_sync();
+        Self { client }
+    }
+}
+
 impl Plugin for RealtimePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Client(self.client.clone()))
@@ -84,16 +93,16 @@ impl Plugin for RealtimePlugin {
                 Update,
                 (
                     (update_presence_track, presence_untrack, build_channels).chain(),
-                    update_client_access_token.run_if(resource_exists_and_changed::<AuthSession>),
+                    update_client_access_token.run_if(resource_exists_and_changed::<Session>),
                 ),
             );
         println!("We plugged in");
     }
 }
 
-fn update_client_access_token(client: Res<Client>, auth: Res<AuthSession>) {
+fn update_client_access_token(client: Res<Client>, auth: Res<Session>) {
     client
         .0
-        .set_access_token(auth.0.access_token.clone())
+        .set_access_token(auth.access_token.clone())
         .unwrap();
 }
