@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_gotrue::{Api, AuthPlugin, Session};
+use bevy_gotrue::{AuthPlugin, Client, Session};
 use bevy_http_client::HttpClientPlugin;
 
 fn main() {
@@ -15,8 +15,8 @@ fn main() {
         .run()
 }
 
-fn do_login(api: Res<Api>) {
-    let g = api.get_url_for_provider("google");
+fn do_login(client: Res<Client>) {
+    let g = client.get_url_for_provider("google");
     println!("\n[LOGIN]\nGo to this URL to sign in: \n{}\n", g);
 }
 

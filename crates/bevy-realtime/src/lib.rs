@@ -5,20 +5,20 @@ pub mod presence;
 use bevy::prelude::*;
 
 pub use realtime_rs::{message::*, realtime_channel::*, realtime_client::*};
+
 use tokio::sync::mpsc::{self, Receiver};
 
 use crate::presence::{presence_untrack, update_presence_track};
 
 #[derive(Resource, Deref)]
-pub struct RealtimeClient(pub ClientManagerSync);
+pub struct Client(pub ClientManagerSync);
 
-impl RealtimeClient {
+impl Client {
     pub fn channel(&mut self, topic: impl Into<String>) -> ChannelBuilder {
         ChannelBuilder(self.0.channel(topic))
     }
 }
 
-// TODO multi client: should take a client manager clone
 #[derive(Component)]
 pub struct ChannelBuilder(pub RealtimeChannelBuilder);
 
@@ -53,7 +53,7 @@ pub struct BuildChannel;
 fn build_channels(
     mut commands: Commands,
     mut q: Query<(Entity, &mut ChannelBuilder), With<BuildChannel>>,
-    client: Res<RealtimeClient>,
+    client: Res<Client>,
 ) {
     for (e, mut c) in q.iter_mut() {
         let Ok(channel) = c.0.build_sync(&client.0) else {
@@ -87,7 +87,7 @@ impl RealtimePlugin {
 
 impl Plugin for RealtimePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(RealtimeClient(self.client.clone()))
+        app.insert_resource(Client(self.client.clone()))
             .add_systems(
                 Update,
                 ((update_presence_track, presence_untrack, build_channels).chain(),),

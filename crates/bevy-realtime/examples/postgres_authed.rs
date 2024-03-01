@@ -1,10 +1,10 @@
 use bevy::prelude::*;
-use bevy_gotrue::{AuthClient, AuthCreds, AuthPlugin, Session};
+use bevy_gotrue::{AuthCreds, AuthPlugin, Client as AuthClient, Session};
 use bevy_http_client::HttpClientPlugin;
 use bevy_realtime::{
     payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
     postgres_changes::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
-    BuildChannel, ChannelBuilder, PostgresChangeFilter, RealtimeClient, RealtimeClientBuilder,
+    BuildChannel, ChannelBuilder, Client, PostgresChangeFilter, RealtimeClientBuilder,
     RealtimePlugin,
 };
 
@@ -54,7 +54,7 @@ fn main() {
     app.run()
 }
 
-fn setup(mut commands: Commands, mut client: ResMut<RealtimeClient>, auth: Res<AuthClient>) {
+fn setup(mut commands: Commands, mut client: ResMut<Client>, auth: Res<AuthClient>) {
     commands.spawn(Camera2dBundle::default());
 
     auth.sign_in(
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, mut client: ResMut<RealtimeClient>, auth: Res<A
     c.insert(BuildChannel);
 }
 
-fn signed_in(client: Res<RealtimeClient>, session: Res<Session>) {
+fn signed_in(client: Res<Client>, session: Res<Session>) {
     client
         .set_access_token(session.access_token.clone())
         .unwrap();

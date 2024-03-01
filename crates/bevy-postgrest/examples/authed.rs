@@ -1,12 +1,12 @@
 use std::time::Duration;
 
 use bevy::{prelude::*, time::common_conditions::on_timer};
-use bevy_gotrue::{AuthClient, AuthCreds, AuthPlugin, Session};
+use bevy_gotrue::{AuthCreds, AuthPlugin, Client as AuthClient, Session};
 use bevy_http_client::{
     prelude::{HttpTypedRequestTrait, TypedRequest, TypedResponse, TypedResponseError},
     HttpClient, HttpClientPlugin,
 };
-use bevy_postgrest::{api::Postgrest, PostgrestPlugin};
+use bevy_postgrest::{Client, PostgrestPlugin};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -52,7 +52,7 @@ fn setup(mut commands: Commands, auth: Res<AuthClient>) {
 }
 
 fn send_every_second(
-    client: Res<Postgrest>,
+    client: Res<Client>,
     mut evw: EventWriter<TypedRequest<MyPostgresResponse>>,
     auth: Option<Res<Session>>,
 ) {

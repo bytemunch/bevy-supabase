@@ -4,13 +4,13 @@ use ehttp::Headers;
 use crate::builder::Builder;
 
 #[derive(Clone, Resource)]
-pub struct Postgrest {
+pub struct Client {
     url: String,
     schema: Option<String>,
     headers: Headers,
 }
 
-impl Postgrest {
+impl Client {
     /// Creates a Postgrest client.
     ///
     /// # Example
@@ -22,7 +22,7 @@ impl Postgrest {
     where
         T: Into<String>,
     {
-        Postgrest {
+        Client {
             url: url.into(),
             schema: None,
             headers: Headers::new(&vec![]),
@@ -41,7 +41,7 @@ impl Postgrest {
     /// let client = Postgrest::new("http://your.postgrest.endpoint");
     /// client.schema("private");
     /// ```
-    pub fn schema<T>(mut self, schema: T) -> Self
+    pub fn schema<T>(&mut self, schema: T) -> &mut Self
     where
         T: Into<String>,
     {
@@ -60,10 +60,10 @@ impl Postgrest {
     ///     .from("table");
     /// ```
     pub fn insert_header(
-        mut self,
+        &mut self,
         header_name: impl ToString,
         header_value: impl ToString,
-    ) -> Self {
+    ) -> &mut Self {
         self.headers.insert(header_name, header_value);
         self
     }

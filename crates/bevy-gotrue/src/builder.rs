@@ -1,13 +1,12 @@
-use bevy::ecs::system::Resource;
 use ehttp::{Headers, Request};
 use serde_json::json;
 
 use crate::UserAttributes;
 
-#[derive(Clone, Resource)]
-pub struct Api {
-    url: String,
-    headers: Headers,
+#[derive(Clone)]
+pub struct Builder {
+    pub url: String,
+    pub headers: Headers,
 }
 
 #[derive(Clone)]
@@ -18,10 +17,9 @@ pub enum EmailOrPhone {
 // TODO detect email by looking for @
 // if no @, assume is phone number
 
-impl Api {
-    /// Creates a GoTrue API client.
-    pub fn new(url: impl Into<String>) -> Api {
-        Api {
+impl Builder {
+    pub fn new(url: impl Into<String>) -> Builder {
+        Builder {
             url: url.into(),
             headers: Headers::new(&vec![]),
         }
@@ -29,14 +27,13 @@ impl Api {
 
     /// Add arbitrary headers to the request. For instance when you may want to connect
     /// through an API gateway that needs an API key header.
-    pub fn insert_header(mut self, header_name: &'static str, header_value: &'static str) -> Self {
+    pub fn insert_header(
+        &mut self,
+        header_name: impl ToString,
+        header_value: impl ToString,
+    ) -> &mut Self {
         self.headers.insert(header_name, header_value);
         self
-    }
-
-    /// Returns a URL for provider oauth flow
-    pub fn get_url_for_provider(&self, provider: &str) -> String {
-        format!("{}/authorize?provider={}", self.url, provider)
     }
 
     /// Signs up for a new account

@@ -1,12 +1,13 @@
-mod api;
+mod builder;
+mod client;
+
+pub use builder::Builder;
+pub use client::Client;
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpListener;
 use std::ops::Deref;
 
-pub use crate::api::Api;
-
-use bevy::ecs::system::SystemId;
 use bevy::prelude::*;
 use bevy::tasks::futures_lite::future;
 use bevy::tasks::{block_on, AsyncComputeTaskPool, Task};
@@ -15,6 +16,7 @@ use bevy_http_client::prelude::{
     HttpTypedRequestTrait, TypedRequest, TypedResponse, TypedResponseError,
 };
 use bevy_http_client::HttpClient;
+use ehttp::Headers;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -66,17 +68,6 @@ pub struct AuthCreds {
     pub password: String,
 }
 
-#[derive(Resource)]
-pub struct AuthClient {
-    pub sign_in: SystemId<AuthCreds>,
-}
-
-impl AuthClient {
-    pub fn sign_in(&self, commands: &mut Commands, creds: AuthCreds) {
-        commands.run_system_with_input(self.sign_in, creds)
-    }
-}
-
 pub struct AuthPlugin {
     pub endpoint: String,
 }
@@ -87,11 +78,12 @@ impl AuthPlugin {
     }
 }
 
+#[derive(Resource)]
+struct AuthEndpoint(String);
+
 impl Plugin for AuthPlugin {
     fn build(&self, app: &mut App) {
-        let api = Api::new(self.endpoint.clone());
-
-        app.insert_resource(api)
+        app.insert_resource(AuthEndpoint(self.endpoint.clone()))
             .add_systems(PreStartup, (setup, start_provider_server))
             .add_systems(
                 Update,
@@ -106,9 +98,17 @@ impl Plugin for AuthPlugin {
 }
 
 fn setup(world: &mut World) {
-    let sign_in = world.register_system(sign_in);
-    world.insert_resource(AuthClient { sign_in });
     // TODO look for HttpClientPlugin, if not found panic and die.
+    let endpoint = world.get_resource::<AuthEndpoint>().unwrap().0.clone();
+    world.remove_resource::<AuthEndpoint>();
+    let headers = Headers::new(&vec![]);
+    let sign_in = world.register_system(sign_in);
+
+    world.insert_resource(Client {
+        endpoint,
+        headers,
+        sign_in,
+    });
 }
 
 #[derive(Resource)]
@@ -216,10 +216,12 @@ fn poll_listener(mut commands: Commands, mut task: ResMut<ProviderListener>) {
 // Oneshot
 pub fn sign_in(
     In(creds): In<AuthCreds>,
-    auth: Res<Api>,
+    auth: Res<Client>,
     mut evw: EventWriter<TypedRequest<Session>>,
 ) {
-    let req = auth.sign_in(api::EmailOrPhone::Email(creds.id), creds.password);
+    let req = auth
+        .builder()
+        .sign_in(builder::EmailOrPhone::Email(creds.id), creds.password);
 
     let req = HttpClient::new().request(req).with_type::<Session>();
     evw.send(req);
