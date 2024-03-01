@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_realtime::{
     payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
     postgres_changes::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
-    BuildChannel, ChannelBuilder, Client, PostgresChangeFilter, RealtimeClientBuilder,
+    BuildChannel, ChannelBuilder, PostgresChangeFilter, RealtimeClient, RealtimeClientBuilder,
     RealtimePlugin,
 };
 
@@ -41,7 +41,7 @@ fn main() {
 
     app.run()
 }
-fn setup(mut commands: Commands, mut client: ResMut<Client>) {
+fn setup(mut commands: Commands, mut client: ResMut<RealtimeClient>) {
     commands.spawn(Camera2dBundle::default());
 
     let mut channel = client.channel("test");

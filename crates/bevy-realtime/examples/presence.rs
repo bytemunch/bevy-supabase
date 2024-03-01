@@ -7,7 +7,7 @@ use bevy_realtime::{
         AppExtend as _, PrescenceTrack, PresenceEvent, PresenceForwarder, PresencePayloadEvent,
         PresenceState,
     },
-    BuildChannel, ChannelBuilder, Client, RealtimeClientBuilder, RealtimePlugin,
+    BuildChannel, ChannelBuilder, RealtimeClient, RealtimeClientBuilder, RealtimePlugin,
 };
 
 #[allow(dead_code)]
@@ -49,7 +49,7 @@ fn main() {
 
     app.run()
 }
-fn setup(mut commands: Commands, mut client: ResMut<Client>) {
+fn setup(mut commands: Commands, mut client: ResMut<RealtimeClient>) {
     commands.spawn(Camera2dBundle::default());
 
     let mut channel = client.channel("test");

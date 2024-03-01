@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_realtime::{
     broadcast::{AppExtend as _, BroadcastForwarder, BroadcastPayloadEvent},
     payload::{BroadcastConfig, BroadcastPayload},
-    BuildChannel, Channel, ChannelBuilder, Client, RealtimeClientBuilder, RealtimePlugin,
+    BuildChannel, Channel, ChannelBuilder, RealtimeClient, RealtimeClientBuilder, RealtimePlugin,
 };
 use serde_json::Value;
 
@@ -40,7 +40,7 @@ fn main() {
 
     app.run()
 }
-fn setup(mut commands: Commands, mut client: ResMut<Client>) {
+fn setup(mut commands: Commands, mut client: ResMut<RealtimeClient>) {
     commands.spawn(Camera2dBundle::default());
 
     let mut channel = client.channel("test");

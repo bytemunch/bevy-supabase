@@ -4,16 +4,15 @@ pub mod presence;
 
 use bevy::prelude::*;
 
-use bevy_gotrue::Session;
 pub use realtime_rs::{message::*, realtime_channel::*, realtime_client::*};
 use tokio::sync::mpsc::{self, Receiver};
 
 use crate::presence::{presence_untrack, update_presence_track};
 
-#[derive(Resource)]
-pub struct Client(ClientManagerSync);
+#[derive(Resource, Deref)]
+pub struct RealtimeClient(pub ClientManagerSync);
 
-impl Client {
+impl RealtimeClient {
     pub fn channel(&mut self, topic: impl Into<String>) -> ChannelBuilder {
         ChannelBuilder(self.0.channel(topic))
     }
@@ -54,7 +53,7 @@ pub struct BuildChannel;
 fn build_channels(
     mut commands: Commands,
     mut q: Query<(Entity, &mut ChannelBuilder), With<BuildChannel>>,
-    client: Res<Client>,
+    client: Res<RealtimeClient>,
 ) {
     for (e, mut c) in q.iter_mut() {
         let Ok(channel) = c.0.build_sync(&client.0) else {
@@ -88,21 +87,11 @@ impl RealtimePlugin {
 
 impl Plugin for RealtimePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Client(self.client.clone()))
+        app.insert_resource(RealtimeClient(self.client.clone()))
             .add_systems(
                 Update,
-                (
-                    (update_presence_track, presence_untrack, build_channels).chain(),
-                    update_client_access_token.run_if(resource_exists_and_changed::<Session>),
-                ),
+                ((update_presence_track, presence_untrack, build_channels).chain(),),
             );
         println!("We plugged in");
     }
-}
-
-fn update_client_access_token(client: Res<Client>, auth: Res<Session>) {
-    client
-        .0
-        .set_access_token(auth.access_token.clone())
-        .unwrap();
 }

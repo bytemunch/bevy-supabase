@@ -1,13 +1,11 @@
-use std::time::Duration;
-
 use bevy::prelude::*;
-use bevy_gotrue::{AuthClient, AuthCreds, AuthPlugin};
+use bevy_gotrue::{AuthClient, AuthCreds, AuthPlugin, Session};
 use bevy_http_client::HttpClientPlugin;
 use bevy_realtime::{
     payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
     postgres_changes::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
-    BuildChannel, ChannelBuilder, Client as RealtimeClient, PostgresChangeFilter,
-    RealtimeClientBuilder, RealtimePlugin,
+    BuildChannel, ChannelBuilder, PostgresChangeFilter, RealtimeClient, RealtimeClientBuilder,
+    RealtimePlugin,
 };
 
 #[allow(dead_code)]
@@ -44,7 +42,13 @@ fn main() {
             },
         ))
         .add_systems(Startup, (setup,))
-        .add_systems(Update, (evr_postgres).chain())
+        .add_systems(
+            Update,
+            (
+                evr_postgres,
+                signed_in.run_if(resource_exists_and_changed::<Session>),
+            ),
+        )
         .add_postgres_event::<ExPostgresEvent, ChannelBuilder>();
 
     app.run()
@@ -79,6 +83,12 @@ fn setup(mut commands: Commands, mut client: ResMut<RealtimeClient>, auth: Res<A
     ));
 
     c.insert(BuildChannel);
+}
+
+fn signed_in(client: Res<RealtimeClient>, session: Res<Session>) {
+    client
+        .set_access_token(session.access_token.clone())
+        .unwrap();
 }
 
 fn evr_postgres(mut evr: EventReader<ExPostgresEvent>) {
