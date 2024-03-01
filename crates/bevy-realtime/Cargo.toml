@@ -18,3 +18,4 @@ realtime-rs = {git = "https://github.com/bytemunch/realtime-rs.git"}
 serde_json = "1.0.113"
 tokio = { version = "1.36.0", features = ["sync"] }
 bevy-gotrue = {path = "../bevy-gotrue/"}
+bevy_http_client = "0.5.1"

@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_gotrue::{AuthClient, AuthCreds, AuthPlugin};
+use bevy_http_client::HttpClientPlugin;
 use bevy_realtime::{
     payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
     postgres_changes::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
@@ -36,9 +37,10 @@ fn main() {
 
     app.add_plugins(DefaultPlugins)
         .add_plugins((
+            HttpClientPlugin,
             RealtimePlugin { client },
             AuthPlugin {
-                endpoint: "http://172.18.0.4:9999".into(),
+                endpoint: "http://127.0.0.1:54321/auth/v1".into(),
             },
         ))
         .add_systems(Startup, (setup,))
@@ -77,11 +79,6 @@ fn setup(mut commands: Commands, mut client: ResMut<RealtimeClient>, auth: Res<A
     ));
 
     c.insert(BuildChannel);
-
-    commands.insert_resource(TestTimer(Timer::new(
-        Duration::from_secs(1),
-        TimerMode::Repeating,
-    )));
 }
 
 fn evr_postgres(mut evr: EventReader<ExPostgresEvent>) {
