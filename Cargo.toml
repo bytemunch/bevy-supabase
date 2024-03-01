@@ -16,8 +16,11 @@ documentation = "https://docs.rs/bevy-supabase"
 members = ["crates/*"]
 resolver = "2"
 
-[dev-dependencies]
+[dependencies]
 bevy = "0.13.0"
 bevy-realtime = {version = "0.1.0", path = "./crates/bevy-realtime"}
+bevy-gotrue = {path = "./crates/bevy-gotrue"}
+bevy-postgrest = {path = "./crates/bevy-postgrest"}
 serde_json = "1.0.113"
 tokio = {version = "1.36.0", features = ["sync"]}
+serde = { version = "1.0.197", features = ["derive"] }
