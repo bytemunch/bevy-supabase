@@ -17,10 +17,14 @@ members = ["crates/*"]
 resolver = "2"
 
 [dependencies]
-bevy = "0.13.0"
-bevy-realtime = {version = "0.1.0", path = "./crates/bevy-realtime"}
-bevy-gotrue = {path = "./crates/bevy-gotrue"}
-bevy-postgrest = {path = "./crates/bevy-postgrest"}
+bevy_http_client = "0.5.1"
+bevy = "0.13.2"
+bevy-realtime = { version = "0.1.0", path = "./crates/bevy-realtime" }
+bevy-gotrue = { path = "./crates/bevy-gotrue" }
+bevy-postgrest = { path = "./crates/bevy-postgrest" }
 serde_json = "1.0.113"
-tokio = {version = "1.36.0", features = ["sync"]}
+tokio = { version = "1.36.0", features = ["sync"] }
 serde = { version = "1.0.197", features = ["derive"] }
+
+[dev-dependencies]
+bevy_cosmic_edit = { git = "https://github.com/StaffEngineer/bevy_cosmic_edit", branch = "user-select" }

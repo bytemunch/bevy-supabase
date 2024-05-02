@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_gotrue::{AuthPlugin, Client, Session};
+use bevy_gotrue::{just_logged_in, AuthPlugin, Client};
 use bevy_http_client::HttpClientPlugin;
 
 fn main() {
@@ -11,7 +11,7 @@ fn main() {
             endpoint: "http://localhost:54321/auth/v1".into(),
         })
         .add_systems(Startup, do_login)
-        .add_systems(Update, did_login.run_if(resource_added::<Session>))
+        .add_systems(Update, did_login.run_if(just_logged_in))
         .run()
 }
 
@@ -20,6 +20,6 @@ fn do_login(client: Res<Client>) {
     println!("\n[LOGIN]\nGo to this URL to sign in: \n{}\n", g);
 }
 
-fn did_login(session: Res<Session>) {
-    println!("Login complete. {:?}", session);
+fn did_login(client: Res<Client>) {
+    println!("Login complete. {:?}", client.access_token);
 }

@@ -92,6 +92,5 @@ impl Plugin for RealtimePlugin {
                 Update,
                 ((update_presence_track, presence_untrack, build_channels).chain(),),
             );
-        println!("We plugged in");
     }
 }

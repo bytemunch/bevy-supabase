@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::{prelude::*, time::common_conditions::on_timer};
-use bevy_gotrue::{AuthCreds, AuthPlugin, Client as AuthClient, Session};
+use bevy_gotrue::{is_logged_in, AuthCreds, AuthPlugin, Client as AuthClient};
 use bevy_http_client::{
     prelude::{HttpTypedRequestTrait, TypedRequest, TypedResponse, TypedResponseError},
     HttpClient, HttpClientPlugin,
@@ -31,7 +31,9 @@ fn main() {
         .add_systems(
             Update,
             (
-                send_every_second.run_if(on_timer(Duration::from_secs(1))),
+                send_every_second
+                    .run_if(on_timer(Duration::from_secs(1)))
+                    .run_if(is_logged_in),
                 postgres_recv,
                 postgres_err,
             ),
@@ -54,12 +56,14 @@ fn setup(mut commands: Commands, auth: Res<AuthClient>) {
 fn send_every_second(
     client: Res<Client>,
     mut evw: EventWriter<TypedRequest<MyPostgresResponse>>,
-    auth: Option<Res<Session>>,
+    auth: Option<Res<AuthClient>>,
 ) {
     let mut req = client.from("todos").select("*");
 
     if let Some(auth) = auth {
-        req = req.auth(auth.access_token.clone());
+        if let Some(token) = auth.access_token.clone() {
+            req = req.auth(token);
+        }
     }
 
     let req = req.build();

@@ -64,6 +64,7 @@ impl Client {
         header_name: impl ToString,
         header_value: impl ToString,
     ) -> &mut Self {
+        // TODO be safer with CSV / single value headers
         self.headers.insert(header_name, header_value);
         self
     }

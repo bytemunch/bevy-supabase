@@ -3,11 +3,12 @@ use ehttp::Headers;
 
 use crate::{AuthCreds, Builder};
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct Client {
     pub sign_in: SystemId<AuthCreds>,
     pub endpoint: String,
     pub headers: Headers,
+    pub access_token: Option<String>,
 }
 
 impl Client {

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_gotrue::{AuthCreds, AuthPlugin, Client as AuthClient, Session};
+use bevy_gotrue::{just_logged_in, AuthCreds, AuthPlugin, Client as AuthClient};
 use bevy_http_client::HttpClientPlugin;
 use bevy_realtime::{
     payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
@@ -42,13 +42,7 @@ fn main() {
             },
         ))
         .add_systems(Startup, (setup,))
-        .add_systems(
-            Update,
-            (
-                evr_postgres,
-                signed_in.run_if(resource_exists_and_changed::<Session>),
-            ),
-        )
+        .add_systems(Update, (evr_postgres, signed_in.run_if(just_logged_in)))
         .add_postgres_event::<ExPostgresEvent, ChannelBuilder>();
 
     app.run()
@@ -85,9 +79,9 @@ fn setup(mut commands: Commands, mut client: ResMut<Client>, auth: Res<AuthClien
     c.insert(BuildChannel);
 }
 
-fn signed_in(client: Res<Client>, session: Res<Session>) {
+fn signed_in(client: Res<Client>, auth: Res<AuthClient>) {
     client
-        .set_access_token(session.access_token.clone())
+        .set_access_token(auth.access_token.clone().unwrap())
         .unwrap();
 }
 

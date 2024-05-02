@@ -1,3 +1,4 @@
+/// Heavily inspired by (and partially fully stolen) from https://crates.io/crates/go_true
 mod builder;
 mod client;
 
@@ -97,6 +98,19 @@ impl Plugin for AuthPlugin {
     }
 }
 
+// logged_in runcondition
+pub fn just_logged_in(session: Option<Res<Session>>) -> bool {
+    if let Some(session) = session {
+        session.is_added()
+    } else {
+        false
+    }
+}
+
+pub fn is_logged_in(session: Option<Res<Session>>) -> bool {
+    session.is_some()
+}
+
 fn setup(world: &mut World) {
     // TODO look for HttpClientPlugin, if not found panic and die.
     let endpoint = world.get_resource::<AuthEndpoint>().unwrap().0.clone();
@@ -108,6 +122,7 @@ fn setup(world: &mut World) {
         endpoint,
         headers,
         sign_in,
+        access_token: None,
     });
 }
 
@@ -227,14 +242,19 @@ pub fn sign_in(
     evw.send(req);
 }
 
-pub fn sign_in_recv(mut evr: EventReader<TypedResponse<Session>>, mut commands: Commands) {
+fn sign_in_recv(
+    mut evr: EventReader<TypedResponse<Session>>,
+    mut client: ResMut<Client>,
+    mut commands: Commands,
+) {
     for res in evr.read() {
         let session = res.deref();
+        client.access_token = Some(session.access_token.clone());
         commands.insert_resource(session.clone());
     }
 }
 
-pub fn sign_in_err(mut evr: EventReader<TypedResponseError<Session>>) {
+fn sign_in_err(mut evr: EventReader<TypedResponseError<Session>>) {
     for err in evr.read() {
         println!("Login error: {:?}", err);
     }

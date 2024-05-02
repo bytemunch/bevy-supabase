@@ -1,7 +1,14 @@
+// Glue plugin for gotrue, auth and postgrest
+
 use bevy::prelude::*;
-use bevy_gotrue::{AuthPlugin, Client as AuthClient, Session};
-use bevy_postgrest::{Client as PostgrestClient, PostgrestPlugin};
-use bevy_realtime::{Client as RealtimeClient, RealtimePlugin};
+
+use bevy_gotrue::{AuthPlugin, Session};
+use bevy_postgrest::PostgrestPlugin;
+use bevy_realtime::RealtimePlugin;
+
+pub use bevy_gotrue::{is_logged_in, just_logged_in, Client as AuthClient};
+pub use bevy_postgrest::Client as PostgrestClient;
+pub use bevy_realtime::Client as RealtimeClient;
 
 #[derive(Resource)]
 pub struct SupabaseClient {
@@ -9,6 +16,7 @@ pub struct SupabaseClient {
     pub endpoint: String,
 }
 
+#[derive(Default)]
 pub struct SupabasePlugin {
     pub endpoint: String,
     pub apikey: String,
@@ -44,7 +52,10 @@ impl Plugin for SupabasePlugin {
         .add_systems(Startup, (setup_apikey,))
         .add_systems(
             Update,
-            (update_realtime_access_token.run_if(resource_exists_and_changed::<Session>),),
+            (
+                (update_realtime_access_token, update_postgrest_access_token)
+                    .run_if(just_logged_in),
+            ),
         );
     }
 }
@@ -66,4 +77,8 @@ fn update_realtime_access_token(client: Res<RealtimeClient>, auth: Res<Session>)
         .0
         .set_access_token(auth.access_token.clone())
         .unwrap();
+}
+
+fn update_postgrest_access_token(mut client: ResMut<PostgrestClient>, auth: Res<Session>) {
+    client.insert_header("Authorization", auth.access_token.clone());
 }
