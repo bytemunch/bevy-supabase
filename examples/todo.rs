@@ -2,6 +2,8 @@
 // almost obligatory for a backend system lmao
 //
 
+use std::time::Duration;
+
 use bevy::{ecs::system::SystemId, prelude::*};
 use bevy_cosmic_edit::*;
 use bevy_http_client::HttpClientPlugin;
@@ -19,6 +21,21 @@ struct Callback(SystemId);
 #[derive(Component)]
 struct Triggered;
 
+#[derive(Component)]
+struct Debouncer {
+    pub timer: Timer,
+    pub pressed: bool,
+}
+
+impl Default for Debouncer {
+    fn default() -> Self {
+        Self {
+            timer: Timer::new(Duration::from_secs_f32(0.3), TimerMode::Once),
+            pressed: false,
+        }
+    }
+}
+
 fn main() {
     let mut app = App::new();
 
@@ -32,11 +49,12 @@ fn main() {
         },
         CosmicEditPlugin::default(),
     ))
-    .add_systems(Startup, (setup, build_login_screen))
+    .add_systems(Startup, (setup, build_login_screen).chain())
     .add_systems(
         Update,
         (
             (
+                tick_debounce_timers,
                 trigger_buttons_on_click,
                 // apply_deferred,
                 evaluate_callbacks,
@@ -68,16 +86,42 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
     }
 }
 
+fn tick_debounce_timers(mut q: Query<&mut Debouncer>, time: Res<Time>) {
+    for mut t in q.iter_mut() {
+        t.timer.tick(time.delta());
+    }
+}
+
 fn trigger_buttons_on_click(
     mut commands: Commands,
-    q: Query<(Entity, &Interaction), (With<Button>, With<Callback>, Without<Triggered>)>,
+    mut q: Query<
+        (Entity, &Interaction, Option<&mut Debouncer>),
+        (With<Button>, With<Callback>, Without<Triggered>),
+    >,
 ) {
-    for (e, i) in q.iter() {
+    for (e, i, t) in q.iter_mut() {
         match i {
             Interaction::Pressed => {
+                if let Some(mut t) = t {
+                    if t.pressed {
+                        t.timer.reset();
+                        continue;
+                    }
+
+                    if !t.timer.finished() {
+                        continue;
+                    }
+
+                    t.timer.reset();
+                    t.pressed = true;
+                }
                 commands.entity(e).insert(Triggered);
             }
-            _ => {}
+            _ => {
+                if let Some(mut t) = t {
+                    t.pressed = false;
+                }
+            }
         }
     }
 }
@@ -233,6 +277,7 @@ fn build_login_screen(
             })
             .insert(CosmicSource(login_button_text))
             .insert(Callback(manifest.do_login))
-            .insert(LoginButton);
+            .insert(LoginButton)
+            .insert(Debouncer::default());
         });
 }
