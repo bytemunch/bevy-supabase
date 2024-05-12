@@ -56,6 +56,7 @@ fn build_channels(
     client: Res<Client>,
 ) {
     for (e, mut c) in q.iter_mut() {
+        commands.entity(e).remove::<ChannelBuilder>();
         let Ok(channel) = c.0.build_sync(&client.0) else {
             continue;
         };
@@ -63,7 +64,6 @@ fn build_channels(
         channel.subscribe();
 
         commands.entity(e).insert(Channel { inner: channel });
-        commands.entity(e).remove::<ChannelBuilder>();
     }
 }
 

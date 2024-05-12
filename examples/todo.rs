@@ -52,16 +52,15 @@ fn main() {
     .add_systems(Startup, (setup, build_login_screen).chain())
     .add_systems(
         Update,
-        (
-            (
-                tick_debounce_timers,
-                trigger_buttons_on_click,
-                // apply_deferred,
-                evaluate_callbacks,
-            )
-                .chain(),
+        ((
             change_active_editor_ui,
-        ),
+            tick_debounce_timers,
+            trigger_buttons_on_click,
+            apply_deferred,
+            evaluate_callbacks,
+        )
+            .chain()
+            .after(FocusSet),),
     );
 
     app.run()
@@ -138,12 +137,13 @@ fn do_login(
     password: Query<&CosmicBuffer, With<PasswordBuffer>>,
     login: Query<Entity, With<LoginMarker>>,
 ) {
-    println!("DO LOGIN POGGIES");
-    // let email = email.single();
-    // let password = password.single();
-    // let login = login.single();
-    //
+    let email = email.single();
+    let password = password.single();
+    let login = login.single();
+
     // commands.entity(login).despawn_recursive();
+
+    println!("{} | {}", email.get_text(), password.get_text());
 }
 
 fn build_login_screen(
@@ -155,36 +155,32 @@ fn build_login_screen(
 
     let attrs = Attrs::new();
 
-    let email_editor =
-        commands
-            .spawn((
-                CosmicEditBundle {
-                    buffer: CosmicBuffer::new(&mut font_system, Metrics::new(32.0, 32.0))
-                        .with_text(&mut font_system, "", attrs),
-                    max_lines: MaxLines(1),
-                    default_attrs: DefaultAttrs(AttrsOwned::new(attrs)),
-                    ..default()
-                },
-                Placeholder::new("Email", attrs.color(Color::GRAY.to_cosmic())),
-                EmailBuffer,
-            ))
-            .id();
+    let email_editor = commands
+        .spawn((
+            CosmicEditBundle {
+                buffer: CosmicBuffer::new(&mut font_system, Metrics::new(32.0, 32.0)),
+                max_lines: MaxLines(1),
+                default_attrs: DefaultAttrs(AttrsOwned::new(attrs)),
+                ..default()
+            },
+            Placeholder::new("Email", attrs.color(Color::GRAY.to_cosmic())),
+            EmailBuffer,
+        ))
+        .id();
 
-    let password_editor =
-        commands
-            .spawn((
-                CosmicEditBundle {
-                    buffer: CosmicBuffer::new(&mut font_system, Metrics::new(32.0, 32.0))
-                        .with_text(&mut font_system, "", attrs),
-                    max_lines: MaxLines(1),
-                    default_attrs: DefaultAttrs(AttrsOwned::new(attrs)),
-                    ..default()
-                },
-                Placeholder::new("Password", attrs.color(Color::GRAY.to_cosmic())),
-                Password::default(),
-                PasswordBuffer,
-            ))
-            .id();
+    let password_editor = commands
+        .spawn((
+            CosmicEditBundle {
+                buffer: CosmicBuffer::new(&mut font_system, Metrics::new(32.0, 32.0)),
+                max_lines: MaxLines(1),
+                default_attrs: DefaultAttrs(AttrsOwned::new(attrs)),
+                ..default()
+            },
+            Placeholder::new("Password", attrs.color(Color::GRAY.to_cosmic())),
+            Password::default(),
+            PasswordBuffer,
+        ))
+        .id();
 
     let login_button_text = commands
         .spawn((
@@ -221,6 +217,7 @@ fn build_login_screen(
             background_color: BackgroundColor(Color::BLACK.with_a(0.2)),
             ..default()
         })
+        .insert(LoginMarker)
         .with_children(|cb| {
             cb.spawn(
                 TextBundle {

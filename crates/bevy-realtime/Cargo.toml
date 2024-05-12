@@ -14,11 +14,10 @@ documentation = "https://docs.rs/bevy-supabase-realtime"
 
 [dependencies]
 bevy = "0.13.0"
-realtime-rs = {git = "https://github.com/bytemunch/realtime-rs.git"}
+realtime-rs = { git = "https://github.com/bytemunch/realtime-rs.git" }
 serde_json = "1.0.113"
-tokio = { version = "1.36.0", features = ["sync"] }
+tokio = { version = "1.37.0", features = ["sync", "rt", "rt-multi-thread"] }
 
 [dev-dependencies]
-bevy-gotrue = {path = "../bevy-gotrue/"}
+bevy-gotrue = { path = "../bevy-gotrue/" }
 bevy_http_client = "0.5.1"
-

@@ -24,7 +24,7 @@ pub struct TestTimer(pub Timer);
 
 fn main() {
     let client = RealtimeClientBuilder::new(
-        "http://127.0.0.1:54321",
+        "http://127.0.0.1:54321/realtime/v1",
         std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap(),
     )
     .connect()
@@ -40,6 +40,7 @@ fn main() {
 
     app.run()
 }
+
 fn setup(mut commands: Commands, mut client: ResMut<Client>) {
     commands.spawn(Camera2dBundle::default());
 
