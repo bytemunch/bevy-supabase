@@ -25,8 +25,8 @@ use tungstenite::{
 use uuid::Uuid;
 
 use super::channel::{ChannelState, RealtimeChannel};
-use super::message::payload::Payload;
-use super::message::realtime_message::RealtimeMessage;
+use crate::message::payload::Payload;
+use crate::message::realtime_message::RealtimeMessage;
 
 use super::channel::ChannelBuilder;
 

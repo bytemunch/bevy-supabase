@@ -2,11 +2,11 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_realtime::{
-    internal::message::{
+    message::{
         payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
         postgres_change_filter::PostgresChangeFilter,
     },
-    postgres_changes::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
+    postgres_changes::bevy::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
     BevyChannelBuilder, BuildChannel, Client, RealtimePlugin,
 };
 

@@ -2,11 +2,9 @@ use std::{collections::HashMap, time::Duration};
 
 use bevy::prelude::*;
 use bevy_realtime::{
-    internal::{
-        message::payload::PresenceConfig,
-        presence::{PresenceEvent, PresenceState},
-    },
-    presence::{AppExtend as _, PrescenceTrack, PresenceForwarder, PresencePayloadEvent},
+    message::payload::PresenceConfig,
+    presence::bevy::{AppExtend as _, PrescenceTrack, PresenceForwarder, PresencePayloadEvent},
+    presence::{PresenceEvent, PresenceState},
     BevyChannelBuilder, BuildChannel, Client, RealtimePlugin,
 };
 

@@ -3,23 +3,19 @@ use crossbeam::channel::{unbounded, Receiver, SendError, Sender};
 use serde_json::Value;
 use uuid::Uuid;
 
-use super::{
-    client::ClientManager,
-    message::{
-        payload::{
-            AccessTokenPayload, BroadcastConfig, BroadcastPayload, JoinConfig, JoinPayload,
-            Payload, PayloadStatus, PostgresChange, PostgresChangesEvent, PostgresChangesPayload,
-            PresenceConfig,
-        },
-        postgres_change_filter::PostgresChangeFilter,
-        realtime_message::{MessageEvent, RealtimeMessage},
+use super::client::ClientManager;
+use crate::message::{
+    payload::{
+        AccessTokenPayload, BroadcastConfig, BroadcastPayload, JoinConfig, JoinPayload, Payload,
+        PayloadStatus, PostgresChange, PostgresChangesEvent, PostgresChangesPayload,
+        PresenceConfig,
     },
+    postgres_change_filter::PostgresChangeFilter,
+    realtime_message::{MessageEvent, RealtimeMessage},
 };
 
-use super::{
-    client::Client,
-    presence::{Presence, PresenceCallback, PresenceEvent, PresenceState},
-};
+use super::client::Client;
+use crate::presence::{Presence, PresenceCallback, PresenceEvent, PresenceState};
 use std::{collections::HashMap, error::Error};
 use std::{fmt::Debug, sync::Arc};
 

@@ -2,8 +2,8 @@ use std::{collections::HashMap, time::Duration};
 
 use bevy::prelude::*;
 use bevy_realtime::{
-    broadcast::{AppExtend as _, BroadcastForwarder, BroadcastPayloadEvent},
-    internal::message::payload::{BroadcastConfig, BroadcastPayload},
+    broadcast::bevy::{AppExtend as _, BroadcastForwarder, BroadcastPayloadEvent},
+    message::payload::{BroadcastConfig, BroadcastPayload},
     BevyChannelBuilder, BuildChannel, Channel, Client, RealtimePlugin,
 };
 use serde_json::Value;

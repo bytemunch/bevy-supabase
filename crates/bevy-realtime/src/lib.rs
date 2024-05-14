@@ -1,5 +1,7 @@
 pub mod broadcast;
-pub mod internal;
+pub mod channel;
+pub mod client;
+pub mod message;
 pub mod postgres_changes;
 pub mod presence;
 
@@ -9,13 +11,11 @@ use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
+use channel::{ChannelBuilder, ChannelManager};
+use client::{ClientBuilder, ClientManager, NextMessageError};
 use crossbeam::channel::{Receiver, TryRecvError};
-use internal::{
-    channel::{ChannelBuilder, ChannelManager},
-    client::{ClientBuilder, ClientManager, NextMessageError},
-};
 
-use crate::presence::{presence_untrack, update_presence_track};
+use crate::presence::bevy::{presence_untrack, update_presence_track};
 
 #[derive(Resource, Deref)]
 pub struct Client(pub ClientManager);
