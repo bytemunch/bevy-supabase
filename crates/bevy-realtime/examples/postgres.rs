@@ -1,9 +1,7 @@
-use std::time::Duration;
-
 use bevy::prelude::*;
 use bevy_realtime::{
     message::{
-        payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
+        payload::{PostgresChangesEvent, PostgresChangesPayload},
         postgres_change_filter::PostgresChangeFilter,
     },
     postgres_changes::bevy::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
@@ -22,9 +20,6 @@ impl PostgresPayloadEvent for ExPostgresEvent {
     }
 }
 
-#[derive(Resource)]
-pub struct TestTimer(pub Timer);
-
 fn main() {
     let mut app = App::new();
 
@@ -42,11 +37,7 @@ fn main() {
 fn setup(mut commands: Commands, client: Res<Client>) {
     commands.spawn(Camera2dBundle::default());
 
-    let mut channel = client.channel("test".into());
-
-    channel.set_presence_config(PresenceConfig {
-        key: Some("TestPresKey".into()),
-    });
+    let channel = client.channel("test".into());
 
     let mut c = commands.spawn(BevyChannelBuilder(channel));
 
@@ -60,11 +51,6 @@ fn setup(mut commands: Commands, client: Res<Client>) {
     ));
 
     c.insert(BuildChannel);
-
-    commands.insert_resource(TestTimer(Timer::new(
-        Duration::from_secs(1),
-        TimerMode::Repeating,
-    )));
 }
 
 fn evr_postgres(mut evr: EventReader<ExPostgresEvent>) {

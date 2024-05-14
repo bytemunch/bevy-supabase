@@ -3,7 +3,7 @@ use bevy_gotrue::{just_logged_in, AuthCreds, AuthPlugin, Client as AuthClient};
 use bevy_http_client::HttpClientPlugin;
 use bevy_realtime::{
     message::{
-        payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
+        payload::{PostgresChangesEvent, PostgresChangesPayload},
         postgres_change_filter::PostgresChangeFilter,
     },
     postgres_changes::bevy::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
@@ -21,9 +21,6 @@ impl PostgresPayloadEvent for ExPostgresEvent {
         Self { payload }
     }
 }
-
-#[derive(Resource)]
-pub struct TestTimer(pub Timer);
 
 fn main() {
     let mut app = App::new();
@@ -57,11 +54,7 @@ fn setup(mut commands: Commands, client: Res<RealtimeClient>, auth: Res<AuthClie
         },
     );
 
-    let mut channel = client.channel("test".into());
-
-    channel.set_presence_config(PresenceConfig {
-        key: Some("TestPresKey".into()),
-    });
+    let channel = client.channel("test".into());
 
     let mut c = commands.spawn(BevyChannelBuilder(channel));
 

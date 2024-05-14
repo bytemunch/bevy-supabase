@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_realtime::{
@@ -25,9 +25,6 @@ impl PresencePayloadEvent for ExPresenceEvent {
         }
     }
 }
-
-#[derive(Resource)]
-pub struct TestTimer(pub Timer);
 
 fn main() {
     let mut app = App::new();
@@ -65,11 +62,6 @@ fn setup(mut commands: Commands, client: Res<Client>) {
     ));
 
     c.insert(BuildChannel);
-
-    commands.insert_resource(TestTimer(Timer::new(
-        Duration::from_secs(1),
-        TimerMode::Repeating,
-    )));
 }
 
 fn evr_presence(mut evr: EventReader<ExPresenceEvent>) {
