@@ -1,45 +1,49 @@
 pub mod broadcast;
+pub mod internal;
 pub mod postgres_changes;
 pub mod presence;
 
-use bevy::prelude::*;
+use std::{thread::sleep, time::Duration};
 
-pub use realtime_rs::{message::*, realtime_channel::*, realtime_client::*};
-
-use tokio::sync::mpsc::{self, Receiver};
+use bevy::{
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task},
+};
+use crossbeam::channel::{Receiver, TryRecvError};
+use internal::{
+    channel::{ChannelBuilder, ChannelManager},
+    client::{ClientBuilder, ClientManager, NextMessageError},
+};
 
 use crate::presence::{presence_untrack, update_presence_track};
 
 #[derive(Resource, Deref)]
-pub struct Client(pub ClientManagerSync);
+pub struct Client(pub ClientManager);
 
-impl Client {
-    pub fn channel(&mut self, topic: impl Into<String>) -> ChannelBuilder {
-        ChannelBuilder(self.0.channel(topic))
-    }
-}
-
-#[derive(Component)]
-pub struct ChannelBuilder(pub RealtimeChannelBuilder);
+#[derive(Component, Deref, DerefMut)]
+pub struct BevyChannelBuilder(pub ChannelBuilder);
 
 #[derive(Component)]
 pub struct ChannelForwarder<E: Event> {
     rx: Receiver<E>,
 }
 
+#[derive(Component, Deref, DerefMut)]
+pub struct Channel(pub ChannelManager);
+
 pub fn forwarder_recv<E: Event>(
     mut commands: Commands,
     mut q_forwarders: Query<(Entity, &mut ChannelForwarder<E>)>,
     mut evw: EventWriter<E>,
 ) {
-    for (e, mut c) in q_forwarders.iter_mut() {
+    for (e, c) in q_forwarders.iter_mut() {
         match c.rx.try_recv() {
             Ok(ev) => {
                 evw.send(ev);
             }
             Err(err) => match err {
-                mpsc::error::TryRecvError::Empty => continue,
-                mpsc::error::TryRecvError::Disconnected => {
+                TryRecvError::Empty => continue,
+                TryRecvError::Disconnected => {
                     commands.entity(e).despawn();
                 }
             },
@@ -52,45 +56,80 @@ pub struct BuildChannel;
 
 fn build_channels(
     mut commands: Commands,
-    mut q: Query<(Entity, &mut ChannelBuilder), With<BuildChannel>>,
-    client: Res<Client>,
+    mut q: Query<(Entity, &mut BevyChannelBuilder), With<BuildChannel>>,
+    mut client: ResMut<Client>,
 ) {
-    for (e, mut c) in q.iter_mut() {
-        commands.entity(e).remove::<ChannelBuilder>();
-        let Ok(channel) = c.0.build_sync(&client.0) else {
-            continue;
-        };
+    for (e, c) in q.iter_mut() {
+        commands.entity(e).remove::<BevyChannelBuilder>();
 
-        channel.subscribe();
+        let channel = c.build(&mut client.0);
 
-        commands.entity(e).insert(Channel { inner: channel });
+        channel.subscribe().unwrap();
+        commands.entity(e).insert(Channel(channel));
     }
 }
 
-#[derive(Component)]
-pub struct Channel {
-    pub inner: ChannelManagerSync,
-}
+#[derive(Resource, Deref, DerefMut)]
+pub struct ClientTask(Task<()>);
 
 pub struct RealtimePlugin {
-    pub client: ClientManagerSync,
+    endpoint: String,
+    apikey: String,
+}
+#[derive(Resource)]
+pub struct RealtimeConfig {
+    endpoint: String,
+    apikey: String,
 }
 
 impl RealtimePlugin {
     pub fn new(endpoint: String, apikey: String) -> Self {
-        let client = RealtimeClientBuilder::new(endpoint, apikey)
-            .connect()
-            .to_sync();
-        Self { client }
+        Self { endpoint, apikey }
     }
+}
+
+fn setup(mut commands: Commands, config: Res<RealtimeConfig>) {
+    let pool = AsyncComputeTaskPool::get();
+
+    let endpoint = config.endpoint.clone();
+    let apikey = config.apikey.clone();
+    let mut client = ClientBuilder::new(endpoint, apikey).build();
+
+    commands.insert_resource(Client(ClientManager::new(&client)));
+
+    let task = pool.spawn(async move {
+        client.connect().unwrap();
+        loop {
+            match client.next_message() {
+                Err(NextMessageError::WouldBlock) => {}
+                Ok(_) => {}
+                Err(e) => println!("{}", e),
+            }
+
+            // TODO find a sane sleep value
+            sleep(Duration::from_secs_f32(f32::MIN_POSITIVE));
+        }
+    });
+
+    commands.insert_resource(ClientTask(task))
 }
 
 impl Plugin for RealtimePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Client(self.client.clone()))
-            .add_systems(
-                Update,
-                ((update_presence_track, presence_untrack, build_channels).chain(),),
-            );
+        app.insert_resource(RealtimeConfig {
+            apikey: self.apikey.clone(),
+            endpoint: self.endpoint.clone(),
+        })
+        .add_systems(PreStartup, (setup,))
+        .add_systems(
+            Update,
+            ((
+                //
+                update_presence_track,
+                presence_untrack,
+                build_channels,
+            )
+                .chain(),),
+        );
     }
 }

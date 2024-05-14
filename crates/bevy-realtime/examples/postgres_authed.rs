@@ -2,10 +2,12 @@ use bevy::prelude::*;
 use bevy_gotrue::{just_logged_in, AuthCreds, AuthPlugin, Client as AuthClient};
 use bevy_http_client::HttpClientPlugin;
 use bevy_realtime::{
-    payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
+    internal::message::{
+        payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
+        postgres_change_filter::PostgresChangeFilter,
+    },
     postgres_changes::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
-    BuildChannel, ChannelBuilder, Client, PostgresChangeFilter, RealtimeClientBuilder,
-    RealtimePlugin,
+    BevyChannelBuilder, BuildChannel, Client as RealtimeClient, RealtimePlugin,
 };
 
 #[allow(dead_code)]
@@ -24,31 +26,27 @@ impl PostgresPayloadEvent for ExPostgresEvent {
 pub struct TestTimer(pub Timer);
 
 fn main() {
-    let client = RealtimeClientBuilder::new(
-        "http://127.0.0.1:54321/realtime/v1",
-        std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap(),
-    )
-    .connect()
-    .to_sync();
-
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
         .add_plugins((
             HttpClientPlugin,
-            RealtimePlugin { client },
+            RealtimePlugin::new(
+                "http://127.0.0.1:54321/realtime/v1".into(),
+                std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap(),
+            ),
             AuthPlugin {
                 endpoint: "http://127.0.0.1:54321/auth/v1".into(),
             },
         ))
         .add_systems(Startup, (setup,))
         .add_systems(Update, (evr_postgres, signed_in.run_if(just_logged_in)))
-        .add_postgres_event::<ExPostgresEvent, ChannelBuilder>();
+        .add_postgres_event::<ExPostgresEvent, BevyChannelBuilder>();
 
     app.run()
 }
 
-fn setup(mut commands: Commands, mut client: ResMut<Client>, auth: Res<AuthClient>) {
+fn setup(mut commands: Commands, client: Res<RealtimeClient>, auth: Res<AuthClient>) {
     commands.spawn(Camera2dBundle::default());
 
     auth.sign_in(
@@ -59,13 +57,13 @@ fn setup(mut commands: Commands, mut client: ResMut<Client>, auth: Res<AuthClien
         },
     );
 
-    let mut channel = client.channel("test");
+    let mut channel = client.channel("test".into());
 
-    channel.0.set_presence_config(PresenceConfig {
+    channel.set_presence_config(PresenceConfig {
         key: Some("TestPresKey".into()),
     });
 
-    let mut c = commands.spawn(channel);
+    let mut c = commands.spawn(BevyChannelBuilder(channel));
 
     c.insert(PostgresForwarder::<ExPostgresEvent>::new(
         PostgresChangesEvent::All,
@@ -79,10 +77,8 @@ fn setup(mut commands: Commands, mut client: ResMut<Client>, auth: Res<AuthClien
     c.insert(BuildChannel);
 }
 
-fn signed_in(client: Res<Client>, auth: Res<AuthClient>) {
-    client
-        .set_access_token(auth.access_token.clone().unwrap())
-        .unwrap();
+fn signed_in(client: Res<RealtimeClient>, auth: Res<AuthClient>) {
+    client.set_access_token(auth.access_token.clone().unwrap())
 }
 
 fn evr_postgres(mut evr: EventReader<ExPostgresEvent>) {

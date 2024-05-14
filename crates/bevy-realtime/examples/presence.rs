@@ -2,12 +2,12 @@ use std::{collections::HashMap, time::Duration};
 
 use bevy::prelude::*;
 use bevy_realtime::{
-    payload::PresenceConfig,
-    presence::{
-        AppExtend as _, PrescenceTrack, PresenceEvent, PresenceForwarder, PresencePayloadEvent,
-        PresenceState,
+    internal::{
+        message::payload::PresenceConfig,
+        presence::{PresenceEvent, PresenceState},
     },
-    BuildChannel, ChannelBuilder, Client, RealtimeClientBuilder, RealtimePlugin,
+    presence::{AppExtend as _, PrescenceTrack, PresenceForwarder, PresencePayloadEvent},
+    BevyChannelBuilder, BuildChannel, Client, RealtimePlugin,
 };
 
 #[allow(dead_code)]
@@ -32,33 +32,29 @@ impl PresencePayloadEvent for ExPresenceEvent {
 pub struct TestTimer(pub Timer);
 
 fn main() {
-    let client = RealtimeClientBuilder::new(
-        "http://127.0.0.1:54321/realtime/v1",
-        std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap(),
-    )
-    .connect()
-    .to_sync();
-
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .add_plugins((RealtimePlugin { client },))
+        .add_plugins((RealtimePlugin::new(
+            "http://127.0.0.1:54321/realtime/v1".into(),
+            std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap(),
+        ),))
         .add_systems(Startup, (setup,))
         .add_systems(Update, (evr_presence).chain())
-        .add_presence_event::<ExPresenceEvent, ChannelBuilder>();
+        .add_presence_event::<ExPresenceEvent, BevyChannelBuilder>();
 
     app.run()
 }
-fn setup(mut commands: Commands, mut client: ResMut<Client>) {
+fn setup(mut commands: Commands, client: Res<Client>) {
     commands.spawn(Camera2dBundle::default());
 
-    let mut channel = client.channel("test");
+    let mut channel = client.channel("test".into());
 
-    channel.0.set_presence_config(PresenceConfig {
+    channel.set_presence_config(PresenceConfig {
         key: Some("TestPresKey".into()),
     });
 
-    let mut c = commands.spawn(channel);
+    let mut c = commands.spawn(BevyChannelBuilder(channel));
 
     let mut payload = HashMap::new();
 

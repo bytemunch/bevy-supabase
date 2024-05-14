@@ -1,14 +1,16 @@
 use std::marker::PhantomData;
 
 use bevy::prelude::*;
-pub use realtime_rs::message::presence::{PresenceEvent, PresenceState};
-use realtime_rs::message::{
-    payload::{PostgresChangesEvent, PostgresChangesPayload},
-    PostgresChangeFilter,
-};
-use tokio::sync::mpsc;
+use crossbeam::channel::unbounded;
 
-use crate::{forwarder_recv, ChannelBuilder, ChannelForwarder};
+use crate::{
+    forwarder_recv,
+    internal::message::{
+        payload::{PostgresChangesEvent, PostgresChangesPayload},
+        postgres_change_filter::PostgresChangeFilter,
+    },
+    BevyChannelBuilder, ChannelForwarder,
+};
 
 pub trait PostgresPayloadEvent {
     fn new(payload: PostgresChangesPayload) -> Self;
@@ -48,12 +50,12 @@ impl<E: Event + PostgresPayloadEvent> PostgresForwarder<E> {
 pub fn postgres_forward<E: Event + PostgresPayloadEvent, T: Component>(
     mut commands: Commands,
     mut q: Query<
-        (Entity, &mut ChannelBuilder, &PostgresForwarder<E>),
+        (Entity, &mut BevyChannelBuilder, &PostgresForwarder<E>),
         (Added<PostgresForwarder<E>>, With<T>),
     >,
 ) {
     for (e, mut cb, event) in q.iter_mut() {
-        let (tx, rx) = mpsc::channel(255);
+        let (tx, rx) = unbounded();
 
         cb.0.on_postgres_change(event.event.clone(), event.filter.clone(), move |payload| {
             let ev = E::new(payload.clone());

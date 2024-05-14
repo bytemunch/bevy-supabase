@@ -1,10 +1,10 @@
 use std::{collections::HashMap, marker::PhantomData};
 
 use bevy::prelude::*;
+use crossbeam::channel::unbounded;
 use serde_json::Value;
-use tokio::sync::mpsc;
 
-use crate::{forwarder_recv, ChannelBuilder, ChannelForwarder};
+use crate::{forwarder_recv, BevyChannelBuilder, ChannelForwarder};
 
 pub trait AppExtend {
     fn add_broadcast_event<E: Event + BroadcastPayloadEvent, F: Component>(&mut self) -> &mut Self;
@@ -42,17 +42,17 @@ impl<E: Event + BroadcastPayloadEvent> BroadcastForwarder<E> {
 pub fn broadcast_forward<E: Event + BroadcastPayloadEvent, T: Component>(
     mut commands: Commands,
     mut q: Query<
-        (Entity, &mut ChannelBuilder, &BroadcastForwarder<E>),
+        (Entity, &mut BevyChannelBuilder, &BroadcastForwarder<E>),
         (Added<BroadcastForwarder<E>>, With<T>),
     >,
 ) {
     for (e, mut cb, event) in q.iter_mut() {
-        let (tx, rx) = mpsc::channel(255);
+        let (tx, rx) = unbounded();
 
         cb.0.on_broadcast(event.event.clone(), move |payload| {
             let ev = E::new(payload.clone());
 
-            tx.try_send(ev).unwrap();
+            tx.send(ev).unwrap();
         });
 
         commands.spawn(ChannelForwarder::<E> { rx });
