@@ -118,13 +118,11 @@ pub fn client_ready(
     client: Res<Client>,
     sender: Res<CrossbeamEventSender<ConnectionState>>,
 ) -> bool {
-    if *rate_limiter % 30 != 0 {
-        return *last_state == ConnectionState::Open;
+    *rate_limiter += 1;
+    if *rate_limiter % 30 == 0 {
+        *rate_limiter = 0;
+        client.connection_state(sender.clone()).unwrap_or(());
     }
-
-    *rate_limiter = 0;
-
-    client.connection_state(sender.clone()).unwrap_or(());
 
     for ev in evr.read() {
         *last_state = ev.clone();
