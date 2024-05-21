@@ -254,7 +254,7 @@ pub mod bevy {
             &mut self,
         ) -> &mut Self {
             self.add_crossbeam_event::<E>()
-                .add_systems(Update, (presence_forward::<E, F>,).chain())
+                .add_systems(Update, (presence_forward::<E, F>,))
         }
     }
 
