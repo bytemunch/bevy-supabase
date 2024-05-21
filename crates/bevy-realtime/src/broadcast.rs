@@ -2,25 +2,23 @@ pub mod bevy {
     use std::{collections::HashMap, marker::PhantomData};
 
     use bevy::prelude::*;
-    use crossbeam::channel::unbounded;
+    use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
     use serde_json::Value;
 
-    use crate::{forwarder_recv, BevyChannelBuilder, ChannelForwarder};
+    use crate::BevyChannelBuilder;
 
-    pub trait AppExtend {
-        fn add_broadcast_event<E: Event + BroadcastPayloadEvent, F: Component>(
+    pub trait BroadcastEventApp {
+        fn add_broadcast_event<E: Event + BroadcastPayloadEvent + Clone, F: Component>(
             &mut self,
         ) -> &mut Self;
     }
 
-    impl AppExtend for App {
-        fn add_broadcast_event<E: Event + BroadcastPayloadEvent, F: Component>(
+    impl BroadcastEventApp for App {
+        fn add_broadcast_event<E: Event + BroadcastPayloadEvent + Clone, F: Component>(
             &mut self,
         ) -> &mut Self {
-            self.add_event::<E>().add_systems(
-                Update,
-                (broadcast_forward::<E, F>, forwarder_recv::<E>).chain(),
-            )
+            self.add_crossbeam_event::<E>()
+                .add_systems(Update, (broadcast_forward::<E, F>).chain())
         }
     }
 
@@ -43,24 +41,22 @@ pub mod bevy {
         }
     }
 
-    // "consumes" BroadcastForwarders, creates ChannelForwarders
-    pub fn broadcast_forward<E: Event + BroadcastPayloadEvent, T: Component>(
+    pub fn broadcast_forward<E: Event + BroadcastPayloadEvent + Clone, T: Component>(
         mut commands: Commands,
         mut q: Query<
             (Entity, &mut BevyChannelBuilder, &BroadcastForwarder<E>),
             (Added<BroadcastForwarder<E>>, With<T>),
         >,
+        sender: Res<CrossbeamEventSender<E>>,
     ) {
         for (e, mut cb, event) in q.iter_mut() {
-            let (tx, rx) = unbounded();
+            let s = sender.clone();
 
             cb.0.on_broadcast(event.event.clone(), move |payload| {
                 let ev = E::new(payload.clone());
-
-                tx.send(ev).unwrap();
+                s.send(ev);
             });
 
-            commands.spawn(ChannelForwarder::<E> { rx });
             commands.entity(e).remove::<BroadcastForwarder<E>>();
         }
     }

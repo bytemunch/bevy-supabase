@@ -14,6 +14,7 @@ documentation = "https://docs.rs/bevy-supabase-realtime"
 
 [dependencies]
 bevy = "0.13.0"
+bevy_crossbeam_event = "0.5.0"
 crossbeam = { version = "0.8.4", features = ["crossbeam-channel", "crossbeam-deque"] }
 native-tls = "0.2.11"
 serde = "1.0.201"
