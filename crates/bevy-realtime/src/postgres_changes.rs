@@ -5,7 +5,7 @@ pub mod bevy {
     use crossbeam::channel::unbounded;
 
     use crate::{
-        forwarder_recv,
+        client_ready, forwarder_recv,
         message::{
             payload::{PostgresChangesEvent, PostgresChangesPayload},
             postgres_change_filter::PostgresChangeFilter,
@@ -29,7 +29,9 @@ pub mod bevy {
         ) -> &mut Self {
             self.add_event::<E>().add_systems(
                 Update,
-                (postgres_forward::<E, F>, forwarder_recv::<E>).chain(),
+                (postgres_forward::<E, F>, forwarder_recv::<E>)
+                    .chain()
+                    .run_if(client_ready),
             )
         }
     }

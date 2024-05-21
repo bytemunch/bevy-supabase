@@ -12,7 +12,7 @@ use bevy::{
     tasks::{AsyncComputeTaskPool, Task},
 };
 use channel::{ChannelBuilder, ChannelManager};
-use client::{ClientBuilder, ClientManager, NextMessageError};
+use client::{ClientBuilder, ClientManager, ConnectionState, NextMessageError};
 use crossbeam::channel::{Receiver, TryRecvError};
 
 use crate::presence::bevy::{presence_untrack, update_presence_track};
@@ -32,11 +32,11 @@ pub struct ChannelForwarder<E: Event> {
 pub struct Channel(pub ChannelManager);
 
 pub fn forwarder_recv<E: Event>(
-    mut commands: Commands,
+    // mut commands: Commands,
     mut q_forwarders: Query<(Entity, &mut ChannelForwarder<E>)>,
     mut evw: EventWriter<E>,
 ) {
-    for (e, c) in q_forwarders.iter_mut() {
+    for (_e, c) in q_forwarders.iter_mut() {
         match c.rx.try_recv() {
             Ok(ev) => {
                 evw.send(ev);
@@ -44,7 +44,7 @@ pub fn forwarder_recv<E: Event>(
             Err(err) => match err {
                 TryRecvError::Empty => continue,
                 TryRecvError::Disconnected => {
-                    commands.entity(e).despawn();
+                    // commands.entity(e).despawn();
                 }
             },
         }
@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, config: Res<RealtimeConfig>) {
         }
     });
 
-    commands.insert_resource(ClientTask(task))
+    commands.insert_resource(ClientTask(task));
 }
 
 impl Plugin for RealtimePlugin {
@@ -129,7 +129,22 @@ impl Plugin for RealtimePlugin {
                 presence_untrack,
                 build_channels,
             )
-                .chain(),),
+                .chain()
+                .run_if(client_ready),),
         );
+    }
+}
+
+pub fn client_ready(client: Res<Client>) -> bool {
+    // TODO this work needs to happen on a thread too!
+    match client.connection_state() {
+        Ok(state) => match state {
+            ConnectionState::Open => true,
+            _ => false,
+        },
+        Err(e) => {
+            println!("got err {}", e);
+            false
+        }
     }
 }

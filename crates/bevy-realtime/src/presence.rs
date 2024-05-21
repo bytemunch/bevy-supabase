@@ -235,7 +235,7 @@ pub mod bevy {
     use serde_json::Value;
 
     use crate::{
-        forwarder_recv,
+        client_ready, forwarder_recv,
         presence::{PresenceEvent, PresenceState},
         BevyChannelBuilder, Channel, ChannelForwarder,
     };
@@ -256,7 +256,9 @@ pub mod bevy {
         ) -> &mut Self {
             self.add_event::<E>().add_systems(
                 Update,
-                (presence_forward::<E, F>, forwarder_recv::<E>).chain(),
+                (presence_forward::<E, F>, forwarder_recv::<E>)
+                    .chain()
+                    .run_if(client_ready),
             )
         }
     }
@@ -311,7 +313,6 @@ pub mod bevy {
         q: Query<(&PrescenceTrack, &Channel), Or<(Changed<PrescenceTrack>, Added<Channel>)>>,
     ) {
         for (p, c) in q.iter() {
-            println!("RUNNUNG SYSTEM");
             c.track(p.payload.clone()).unwrap();
         }
     }

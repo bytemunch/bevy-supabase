@@ -11,8 +11,8 @@ use std::{
     time::Duration,
 };
 
-use bevy::log::debug;
-use crossbeam::channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
+use bevy::log::{debug, info};
+use crossbeam::channel::{unbounded, Receiver, RecvError, SendError, Sender, TryRecvError};
 use native_tls::TlsConnector;
 use tungstenite::{client, Message};
 use tungstenite::{
@@ -140,6 +140,9 @@ pub enum ClientManagerMessage {
     SetAccessToken {
         token: String,
     },
+    ConnectionState {
+        tx: Sender<ConnectionState>,
+    },
 }
 
 impl ClientManager {
@@ -148,6 +151,18 @@ impl ClientManager {
             tx: client.manager_tx.clone(),
         }
     }
+
+    // TODO ClientManager should hold ready state
+    // all fns should consult ready state before trying to interact across async bounds
+    //
+    // OR
+    //
+    // ClienManager should be polled each frame, and send events on reciept of data from across
+    // async bounds
+    //
+    // OR
+    //
+    // Client should have a tx that sends to an rx on main thread, updating the connection state
 
     pub fn channel(&self, topic: String) -> ChannelBuilder {
         let (tx, rx) = unbounded();
@@ -178,12 +193,21 @@ impl ClientManager {
             .send(ClientManagerMessage::SetAccessToken { token })
             .unwrap();
     }
+
+    pub fn connection_state(&self) -> Result<ConnectionState, RecvError> {
+        let (tx, rx) = unbounded();
+        self.tx
+            .send(ClientManagerMessage::ConnectionState { tx })
+            .unwrap();
+
+        rx.recv()
+    }
 }
 
 /// Synchronous websocket client that interfaces with Supabase Realtime
 pub struct Client {
     pub(crate) access_token: String,
-    status: ConnectionState,
+    connection_state: ConnectionState,
     socket: Option<WebSocket>,
     channels: HashMap<Uuid, RealtimeChannel>,
     messages_this_second: Vec<SystemTime>,
@@ -239,6 +263,9 @@ impl Client {
                 ClientManagerMessage::SetAccessToken { token } => {
                     self.access_token = token;
                 }
+                ClientManagerMessage::ConnectionState { tx } => {
+                    tx.send(self.connection_state)?;
+                }
             }
         }
 
@@ -251,7 +278,7 @@ impl Client {
 
     /// Returns this client's [ConnectionState]
     pub fn get_status(&self) -> ConnectionState {
-        self.status
+        self.connection_state
     }
 
     /// Returns a new [RealtimeChannelBuilder] instantiated with the provided `topic`
@@ -261,7 +288,7 @@ impl Client {
 
     /// Attempt to create a websocket connection with the server
     pub fn connect(&mut self) -> Result<&mut Client, ConnectError> {
-        println!("connecting...");
+        info!("connecting...");
 
         let uri: Uri = match format!(
             "{}/websocket?apikey={}&vsn=1.0.0",
@@ -431,28 +458,29 @@ impl Client {
 
         self.socket = Some(socket);
 
-        self.status = ConnectionState::Open;
+        self.connection_state = ConnectionState::Open;
+        info!("connected");
 
         Ok(self)
     }
 
     /// Disconnect the client
     pub fn disconnect(&mut self) {
-        if self.status == ConnectionState::Closed {
+        if self.connection_state == ConnectionState::Closed {
             return;
         }
 
         self.remove_all_channels();
 
-        self.status = ConnectionState::Closed;
+        self.connection_state = ConnectionState::Closed;
 
         let Some(ref mut socket) = self.socket else {
-            debug!("Already disconnected. {:?}", self.status);
+            debug!("Already disconnected. {:?}", self.connection_state);
             return;
         };
 
         let _ = socket.close(None);
-        debug!("Client disconnected. {:?}", self.status);
+        debug!("Client disconnected. {:?}", self.connection_state);
     }
 
     /// Queues a [RealtimeMessage] for sending to the server
@@ -568,6 +596,7 @@ impl Client {
 
     /// The main step function for driving the [RealtimeClient]
     pub fn next_message(&mut self) -> Result<Vec<Uuid>, NextMessageError> {
+        // TODO run manager_recv fns until channels drained
         match self.manager_recv() {
             Ok(()) => {}
             Err(e) => debug!("client manager_recv error: {}", e),
@@ -580,7 +609,7 @@ impl Client {
             }
         }
 
-        match self.status {
+        match self.connection_state {
             ConnectionState::Closed => {
                 return Err(NextMessageError::ClientClosed);
             }
@@ -666,11 +695,13 @@ impl Client {
     }
 
     fn remove_all_channels(&mut self) {
-        if self.status == ConnectionState::Closing || self.status == ConnectionState::Closed {
+        if self.connection_state == ConnectionState::Closing
+            || self.connection_state == ConnectionState::Closed
+        {
             return;
         }
 
-        self.status = ConnectionState::Closing;
+        self.connection_state = ConnectionState::Closing;
 
         // wait until inbound_rx is drained
         loop {
@@ -747,8 +778,8 @@ impl Client {
         match self.monitor_channel.0 .1.try_recv() {
             Ok(signal) => match signal {
                 MonitorSignal::Reconnect => {
-                    if self.status == ConnectionState::Open
-                        || self.status == ConnectionState::Reconnecting
+                    if self.connection_state == ConnectionState::Open
+                        || self.connection_state == ConnectionState::Reconnecting
                         || SystemTime::now() < self.reconnect_now.unwrap() + self.reconnect_delay
                     {
                         return Err(MonitorError::WouldBlock);
@@ -758,7 +789,7 @@ impl Client {
                         return Err(MonitorError::MaxReconnects);
                     }
 
-                    self.status = ConnectionState::Reconnecting;
+                    self.connection_state = ConnectionState::Reconnecting;
                     self.reconnect_attempts += 1;
                     self.reconnect_now.take();
 
@@ -772,7 +803,7 @@ impl Client {
                         }
                         Err(e) => {
                             debug!("reconnect error: {:?}", e);
-                            self.status = ConnectionState::Reconnect;
+                            self.connection_state = ConnectionState::Reconnect;
                             Err(MonitorError::ReconnectError)
                         }
                     }
@@ -841,7 +872,7 @@ impl Client {
             }
             Err(err) => {
                 debug!("Socket read error: {:?}", err);
-                self.status = ConnectionState::Reconnect;
+                self.connection_state = ConnectionState::Reconnect;
                 let _ = self.monitor_channel.0 .0.send(MonitorSignal::Reconnect);
                 Err(SocketError::WouldBlock)
             }
@@ -902,7 +933,7 @@ impl Client {
             }
             Err(e) => {
                 debug!("outbound error: {:?}", e);
-                self.status = ConnectionState::Reconnect;
+                self.connection_state = ConnectionState::Reconnect;
                 let _ = self.monitor_channel.0 .0.send(MonitorSignal::Reconnect);
                 Err(SocketError::WouldBlock)
             }
@@ -910,7 +941,7 @@ impl Client {
     }
 
     fn reconnect(&mut self) {
-        self.status = ConnectionState::Reconnect;
+        self.connection_state = ConnectionState::Reconnect;
         let _ = self.monitor_channel.0 .0.send(MonitorSignal::Reconnect);
     }
 }
@@ -1011,28 +1042,7 @@ impl ClientBuilder {
     /// Don't implement an untested timing function here in prod or you might make a few too many
     /// requests.
     ///
-    /// Defaults to stepped backoff, as shown below
-    /// ```
-    /// # use std::env;
-    /// # use std::time::Duration;
-    /// # use realtime_rs::sync::*;
-    /// # use realtime_rs::message::*;  
-    /// # use realtime_rs::*;          
-    /// # fn main() -> Result<(), ()> {
-    ///     fn backoff(attempts: usize) -> Duration {
-    ///         let times: Vec<u64> = vec![0, 1, 2, 5, 10];
-    ///         Duration::from_secs(times[attempts.min(times.len() - 1)])
-    ///     }
-    ///
-    ///     let url = "http://127.0.0.1:54321";
-    ///     let anon_key = env::var("LOCAL_ANON_KEY").expect("No anon key!");
-    ///
-    ///     let mut client = RealtimeClientBuilder::new(url, anon_key)
-    ///         .reconnect_interval(ReconnectFn::new(backoff))
-    ///         .build();
-    /// #   Ok(())
-    /// # }
-    ///
+    /// Defaults to stepped backoff
     pub fn reconnect_interval(mut self, reconnect_interval: ReconnectFn) -> Self {
         // TODO minimum interval to prevent 10000000 requests in seconds
         // then again it takes a bit of work to make that mistake?
@@ -1109,7 +1119,7 @@ impl ClientBuilder {
             access_token: self.access_token,
             max_events_per_second: self.max_events_per_second,
             next_ref: Uuid::new_v4(),
-            status: Default::default(),
+            connection_state: Default::default(),
             socket: Default::default(),
             channels: Default::default(),
             messages_this_second: Default::default(),
