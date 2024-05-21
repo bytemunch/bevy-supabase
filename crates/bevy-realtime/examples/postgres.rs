@@ -1,11 +1,11 @@
-use std::time::Duration;
-
 use bevy::prelude::*;
 use bevy_realtime::{
-    payload::{PostgresChangesEvent, PostgresChangesPayload, PresenceConfig},
-    postgres_changes::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
-    BuildChannel, ChannelBuilder, Client, PostgresChangeFilter, RealtimeClientBuilder,
-    RealtimePlugin,
+    message::{
+        payload::{PostgresChangesEvent, PostgresChangesPayload},
+        postgres_change_filter::PostgresChangeFilter,
+    },
+    postgres_changes::bevy::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
+    BevyChannelBuilder, BuildChannel, Client, RealtimePlugin,
 };
 
 #[allow(dead_code)]
@@ -20,37 +20,26 @@ impl PostgresPayloadEvent for ExPostgresEvent {
     }
 }
 
-#[derive(Resource)]
-pub struct TestTimer(pub Timer);
-
 fn main() {
-    let client = RealtimeClientBuilder::new(
-        "http://127.0.0.1:54321/realtime/v1",
-        std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap(),
-    )
-    .connect()
-    .to_sync();
-
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .add_plugins((RealtimePlugin { client },))
+        .add_plugins((RealtimePlugin::new(
+            "http://127.0.0.1:54321/realtime/v1".into(),
+            std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap(),
+        ),))
         .add_systems(Startup, (setup,))
         .add_systems(Update, (evr_postgres).chain())
-        .add_postgres_event::<ExPostgresEvent, ChannelBuilder>();
+        .add_postgres_event::<ExPostgresEvent, BevyChannelBuilder>();
 
     app.run()
 }
-fn setup(mut commands: Commands, mut client: ResMut<Client>) {
+fn setup(mut commands: Commands, client: Res<Client>) {
     commands.spawn(Camera2dBundle::default());
 
-    let mut channel = client.channel("test");
+    let channel = client.channel("test".into());
 
-    channel.0.set_presence_config(PresenceConfig {
-        key: Some("TestPresKey".into()),
-    });
-
-    let mut c = commands.spawn(channel);
+    let mut c = commands.spawn(BevyChannelBuilder(channel));
 
     c.insert(PostgresForwarder::<ExPostgresEvent>::new(
         PostgresChangesEvent::All,
@@ -62,11 +51,6 @@ fn setup(mut commands: Commands, mut client: ResMut<Client>) {
     ));
 
     c.insert(BuildChannel);
-
-    commands.insert_resource(TestTimer(Timer::new(
-        Duration::from_secs(1),
-        TimerMode::Repeating,
-    )));
 }
 
 fn evr_postgres(mut evr: EventReader<ExPostgresEvent>) {

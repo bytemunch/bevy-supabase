@@ -23,7 +23,6 @@ bevy-realtime = { version = "0.1.0", path = "./crates/bevy-realtime" }
 bevy-gotrue = { path = "./crates/bevy-gotrue" }
 bevy-postgrest = { path = "./crates/bevy-postgrest" }
 serde_json = "1.0.113"
-tokio = { version = "1.37.0", features = ["sync", "rt", "rt-multi-thread"] }
 serde = { version = "1.0.197", features = ["derive"] }
 
 [dev-dependencies]
