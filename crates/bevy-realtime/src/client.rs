@@ -1007,7 +1007,7 @@ impl ClientBuilder {
     }
 
     /// Sets the client headers. Headers always contain "X-Client-Info: realtime-rs/{version}".
-    pub fn set_headers(mut self, set_headers: HeaderMap) -> Self {
+    pub fn set_headers(&mut self, set_headers: HeaderMap) -> &mut Self {
         let mut headers = HeaderMap::new();
         headers.insert("X-Client-Info", "realtime-rs/0.1.0".parse().unwrap());
         headers.extend(set_headers);
@@ -1018,19 +1018,19 @@ impl ClientBuilder {
     }
 
     /// Merges provided [HeaderMap] with currently held headers
-    pub fn add_headers(mut self, headers: HeaderMap) -> Self {
+    pub fn add_headers(&mut self, headers: HeaderMap) -> &mut Self {
         self.headers.extend(headers);
         self
     }
 
     /// Set endpoint URL params
-    pub fn params(mut self, params: HashMap<String, String>) -> Self {
+    pub fn params(&mut self, params: HashMap<String, String>) -> &mut Self {
         self.params = Some(params);
         self
     }
 
     /// Set [Duration] between heartbeat packets. Default 29 seconds.
-    pub fn heartbeat_interval(mut self, heartbeat_interval: Duration) -> Self {
+    pub fn heartbeat_interval(&mut self, heartbeat_interval: Duration) -> &mut Self {
         self.heartbeat_interval = heartbeat_interval;
         self
     }
@@ -1043,7 +1043,7 @@ impl ClientBuilder {
     /// requests.
     ///
     /// Defaults to stepped backoff
-    pub fn reconnect_interval(mut self, reconnect_interval: ReconnectFn) -> Self {
+    pub fn reconnect_interval(&mut self, reconnect_interval: ReconnectFn) -> &mut Self {
         // TODO minimum interval to prevent 10000000 requests in seconds
         // then again it takes a bit of work to make that mistake?
         self.reconnect_interval = reconnect_interval;
@@ -1051,7 +1051,7 @@ impl ClientBuilder {
     }
 
     /// Configure the number of recconect attempts to be made before erroring
-    pub fn reconnect_max_attempts(mut self, max_attempts: usize) -> Self {
+    pub fn reconnect_max_attempts(&mut self, max_attempts: usize) -> &mut Self {
         self.reconnect_max_attempts = max_attempts;
         self
     }
@@ -1059,7 +1059,7 @@ impl ClientBuilder {
     /// Configure the duration to wait for a connection to succeed.
     /// Default: 10 seconds
     /// Minimum: 1 second
-    pub fn connection_timeout(mut self, timeout: Duration) -> Self {
+    pub fn connection_timeout(&mut self, timeout: Duration) -> &mut Self {
         // 1 sec min timeout
         let timeout = if timeout < Duration::from_secs(1) {
             Duration::from_secs(1)
@@ -1074,30 +1074,30 @@ impl ClientBuilder {
     /// Set the base URL for the auth server
     /// In live supabase deployments this is the same as the endpoint URL, and defaults as such.
     /// In local deployments this may need to be set manually
-    pub fn auth_url(mut self, auth_url: impl Into<String>) -> Self {
+    pub fn auth_url(&mut self, auth_url: impl Into<String>) -> &mut Self {
         self.auth_url = Some(auth_url.into());
         self
     }
 
     /// Sets the max messages we can send in a second.
     /// Default: 10
-    pub fn max_events_per_second(mut self, count: usize) -> Self {
+    pub fn max_events_per_second(&mut self, count: usize) -> &mut Self {
         self.max_events_per_second = count;
         self
     }
 
     pub fn encode(
-        mut self,
+        &mut self,
         encode: impl Fn(RealtimeMessage) -> RealtimeMessage + 'static + Send + Sync,
-    ) -> Self {
+    ) -> &mut Self {
         self.encode = Some(Box::new(encode));
         self
     }
 
     pub fn decode(
-        mut self,
+        &mut self,
         decode: impl Fn(RealtimeMessage) -> RealtimeMessage + 'static + Send + Sync,
-    ) -> Self {
+    ) -> &mut Self {
         self.decode = Some(Box::new(decode));
         self
     }
