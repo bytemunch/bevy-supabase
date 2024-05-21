@@ -1,5 +1,7 @@
 // Glue plugin for gotrue, auth and postgrest
 
+pub mod prelude;
+
 use bevy::prelude::*;
 
 use bevy_gotrue::{AuthPlugin, Session};
