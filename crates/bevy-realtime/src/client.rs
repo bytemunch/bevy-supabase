@@ -11,6 +11,7 @@ use std::{
     time::Duration,
 };
 
+use bevy::ecs::system::SystemId;
 use bevy::log::{debug, info};
 use bevy::prelude::*;
 use bevy_crossbeam_event::CrossbeamEventSender;
@@ -132,7 +133,7 @@ pub struct ClientManager {
 
 pub enum ClientManagerMessage {
     Channel {
-        tx: Sender<ChannelBuilder>,
+        callback: SystemId<ChannelBuilder>,
     },
     AddChannel {
         channel: RealtimeChannel,
@@ -167,19 +168,11 @@ impl ClientManager {
     // These functions should be oneshots, that schedule oneshots
     //
     // These functions need to queue their requests in case the client is not ready
-    pub fn channel(&self) -> ChannelBuilder {
-        let (tx, rx) = unbounded();
-
-        match self.tx.send(ClientManagerMessage::Channel { tx }) {
-            Ok(()) => {
-                println!("Channel create message sent")
-            }
-            Err(e) => {
-                println!("{}", e)
-            }
-        }
-
-        rx.recv().unwrap()
+    pub fn channel(
+        &self,
+        callback: SystemId<ChannelBuilder>,
+    ) -> Result<(), SendError<ClientManagerMessage>> {
+        self.tx.send(ClientManagerMessage::Channel { callback })
     }
 
     pub fn add_channel(&self, channel: RealtimeChannel) -> () {
@@ -234,8 +227,10 @@ pub struct Client {
     auth_url: Option<String>,
     endpoint: String,
     max_events_per_second: usize,
+    // sync bridge
     manager_rx: Receiver<ClientManagerMessage>,
     manager_tx: Sender<ClientManagerMessage>,
+    channel_callback_event_sender: CrossbeamEventSender<ChannelCallbackEvent>,
 }
 
 impl Debug for Client {
@@ -252,11 +247,19 @@ impl Debug for Client {
     }
 }
 
+#[derive(Event, Clone)]
+pub struct ChannelCallbackEvent(pub (SystemId<ChannelBuilder>, ChannelBuilder));
+
 impl Client {
     fn manager_recv(&mut self) -> Result<(), Box<dyn Error>> {
         while let Ok(message) = self.manager_rx.try_recv() {
             match message {
-                ClientManagerMessage::Channel { tx } => tx.send(self.channel())?,
+                ClientManagerMessage::Channel { callback } => {
+                    let c = self.channel();
+
+                    self.channel_callback_event_sender
+                        .send(ChannelCallbackEvent((callback, c)));
+                }
                 ClientManagerMessage::AddChannel { channel, tx } => {
                     tx.send(self.add_channel(channel))?
                 }
@@ -1103,7 +1106,10 @@ impl ClientBuilder {
     }
 
     /// Consume the [Self] and return a configured [RealtimeClient]
-    pub fn build(self) -> Client {
+    pub fn build(
+        self,
+        channel_callback_event_sender: CrossbeamEventSender<ChannelCallbackEvent>,
+    ) -> Client {
         let (manager_tx, manager_rx) = unbounded();
         let c = Client {
             headers: self.headers,
@@ -1133,6 +1139,7 @@ impl ClientBuilder {
             heartbeat_now: Default::default(),
             manager_rx,
             manager_tx,
+            channel_callback_event_sender,
         };
 
         c

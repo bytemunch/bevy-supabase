@@ -3,6 +3,7 @@ use std::{collections::HashMap, time::Duration};
 use bevy::prelude::*;
 use bevy_realtime::{
     broadcast::bevy::{BroadcastEventApp, BroadcastForwarder, BroadcastPayloadEvent},
+    channel::ChannelBuilder,
     client_ready,
     message::payload::{BroadcastConfig, BroadcastPayload},
     BevyChannelBuilder, BuildChannel, Channel, Client, RealtimePlugin,
@@ -46,29 +47,38 @@ fn main() {
     app.run()
 }
 
-fn setup_channels(mut commands: Commands, client: Res<Client>, mut has_run: Local<bool>) {
+fn setup_channels(world: &mut World, mut has_run: Local<bool>) {
     if *has_run {
         return;
     }
+    println!("channel setup s1 ");
 
-    println!("running channel setup");
+    let callback = world.register_system(setup_channels_s2);
+
+    let client = world.resource::<Client>();
 
     *has_run = true;
 
-    let mut channel = client.channel();
+    client.channel(callback).unwrap();
 
-    channel.topic("test").set_broadcast_config(BroadcastConfig {
-        broadcast_self: true,
-        ack: false,
-    });
+    println!("channel setup s1 finished");
+}
 
-    let mut c = commands.spawn(BevyChannelBuilder(channel));
+fn setup_channels_s2(mut channel_builder: In<ChannelBuilder>, mut commands: Commands) {
+    println!("channel setup s2 ");
+    channel_builder
+        .topic("test")
+        .set_broadcast_config(BroadcastConfig {
+            broadcast_self: true,
+            ack: false,
+        });
+
+    let mut c = commands.spawn(BevyChannelBuilder(channel_builder.0));
 
     c.insert(BroadcastForwarder::<ExBroadcastEvent>::new("test".into()));
 
     c.insert(BuildChannel);
-
-    println!("channel setup finished");
+    println!("channel setup s2 finished");
 }
 
 fn bevy_setup(mut commands: Commands) {

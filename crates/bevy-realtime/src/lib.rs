@@ -13,7 +13,9 @@ use bevy::{
 };
 use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
 use channel::{ChannelBuilder, ChannelManager};
-use client::{ClientBuilder, ClientManager, ConnectionState, NextMessageError};
+use client::{
+    ChannelCallbackEvent, ClientBuilder, ClientManager, ConnectionState, NextMessageError,
+};
 
 use crate::presence::bevy::{presence_untrack, update_presence_track};
 
@@ -63,12 +65,17 @@ impl RealtimePlugin {
     }
 }
 
-fn setup(mut commands: Commands, config: Res<RealtimeConfig>) {
+fn setup(
+    mut commands: Commands,
+    config: Res<RealtimeConfig>,
+    channel_callback_event_sender: Res<CrossbeamEventSender<ChannelCallbackEvent>>,
+) {
     let pool = AsyncComputeTaskPool::get();
 
     let endpoint = config.endpoint.clone();
     let apikey = config.apikey.clone();
-    let mut client = ClientBuilder::new(endpoint, apikey).build();
+    let mut client =
+        ClientBuilder::new(endpoint, apikey).build(channel_callback_event_sender.clone());
 
     commands.insert_resource(Client(ClientManager::new(&client)));
 
@@ -96,6 +103,7 @@ impl Plugin for RealtimePlugin {
             endpoint: self.endpoint.clone(),
         })
         .add_crossbeam_event::<ConnectionState>()
+        .add_crossbeam_event::<ChannelCallbackEvent>()
         .add_systems(PreStartup, (setup,))
         .add_systems(
             Update,
@@ -104,10 +112,18 @@ impl Plugin for RealtimePlugin {
                 update_presence_track,
                 presence_untrack,
                 build_channels,
+                run_callbacks,
             )
                 .chain()
                 .run_if(client_ready),),
         );
+    }
+}
+
+fn run_callbacks(mut commands: Commands, mut evr: EventReader<ChannelCallbackEvent>) {
+    for ev in evr.read() {
+        let (callback, builder) = ev.0.clone();
+        commands.run_system_with_input(callback, builder);
     }
 }
 

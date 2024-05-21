@@ -1,4 +1,4 @@
-use bevy::log::debug;
+use bevy::{ecs::event::Event, log::debug};
 use crossbeam::channel::{unbounded, Receiver, SendError, Sender};
 use serde_json::Value;
 use uuid::Uuid;
@@ -363,6 +363,7 @@ impl Debug for RealtimeChannel {
 /// Builder struct for [RealtimeChannel]
 ///
 /// Get access to this through [RealtimeClient::channel()]
+#[derive(Event, Clone)]
 pub struct ChannelBuilder {
     topic: String,
     access_token: String,
