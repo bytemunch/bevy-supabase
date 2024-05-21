@@ -5,7 +5,7 @@ pub mod bevy {
     use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
     use serde_json::Value;
 
-    use crate::BevyChannelBuilder;
+    use crate::{client_ready, BevyChannelBuilder};
 
     pub trait BroadcastEventApp {
         fn add_broadcast_event<E: Event + BroadcastPayloadEvent + Clone, F: Component>(
@@ -18,7 +18,7 @@ pub mod bevy {
             &mut self,
         ) -> &mut Self {
             self.add_crossbeam_event::<E>()
-                .add_systems(Update, (broadcast_forward::<E, F>,))
+                .add_systems(Update, (broadcast_forward::<E, F>,).run_if(client_ready))
         }
     }
 

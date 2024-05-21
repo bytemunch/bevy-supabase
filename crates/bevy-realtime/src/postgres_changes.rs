@@ -5,6 +5,7 @@ pub mod bevy {
     use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
 
     use crate::{
+        client_ready,
         message::{
             payload::{PostgresChangesEvent, PostgresChangesPayload},
             postgres_change_filter::PostgresChangeFilter,
@@ -27,7 +28,7 @@ pub mod bevy {
             &mut self,
         ) -> &mut Self {
             self.add_crossbeam_event::<E>()
-                .add_systems(Update, (postgres_forward::<E, F>,))
+                .add_systems(Update, (postgres_forward::<E, F>,).run_if(client_ready))
         }
     }
 

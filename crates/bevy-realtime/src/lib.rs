@@ -11,8 +11,9 @@ use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
+use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
 use channel::{ChannelBuilder, ChannelManager};
-use client::{ClientBuilder, ClientManager, NextMessageError};
+use client::{ClientBuilder, ClientManager, ConnectionState, NextMessageError};
 
 use crate::presence::bevy::{presence_untrack, update_presence_track};
 
@@ -85,7 +86,7 @@ fn setup(mut commands: Commands, config: Res<RealtimeConfig>) {
         }
     });
 
-    commands.insert_resource(ClientTask(task))
+    commands.insert_resource(ClientTask(task));
 }
 
 impl Plugin for RealtimePlugin {
@@ -94,6 +95,7 @@ impl Plugin for RealtimePlugin {
             apikey: self.apikey.clone(),
             endpoint: self.endpoint.clone(),
         })
+        .add_crossbeam_event::<ConnectionState>()
         .add_systems(PreStartup, (setup,))
         .add_systems(
             Update,
@@ -103,7 +105,28 @@ impl Plugin for RealtimePlugin {
                 presence_untrack,
                 build_channels,
             )
-                .chain(),),
+                .chain()
+                .run_if(client_ready),),
         );
     }
+}
+
+pub fn client_ready(
+    mut evr: EventReader<ConnectionState>,
+    mut last_state: Local<ConnectionState>,
+    mut rate_limiter: Local<usize>,
+    client: Res<Client>,
+    sender: Res<CrossbeamEventSender<ConnectionState>>,
+) -> bool {
+    *rate_limiter += 1;
+    if *rate_limiter % 30 == 0 {
+        *rate_limiter = 0;
+        client.connection_state(sender.clone()).unwrap_or(());
+    }
+
+    for ev in evr.read() {
+        *last_state = ev.clone();
+    }
+
+    *last_state == ConnectionState::Open
 }
