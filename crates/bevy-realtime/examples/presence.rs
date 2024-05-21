@@ -9,7 +9,7 @@ use bevy_realtime::{
 };
 
 #[allow(dead_code)]
-#[derive(Event, Debug, Default)]
+#[derive(Event, Debug, Default, Clone)]
 pub struct ExPresenceEvent {
     key: String,
     new_state: PresenceState,

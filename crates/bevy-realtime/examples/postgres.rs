@@ -4,12 +4,12 @@ use bevy_realtime::{
         payload::{PostgresChangesEvent, PostgresChangesPayload},
         postgres_change_filter::PostgresChangeFilter,
     },
-    postgres_changes::bevy::{AppExtend as _, PostgresForwarder, PostgresPayloadEvent},
+    postgres_changes::bevy::{PostgresForwarder, PostgresPayloadEvent, PostresEventApp as _},
     BevyChannelBuilder, BuildChannel, Client, RealtimePlugin,
 };
 
 #[allow(dead_code)]
-#[derive(Event, Debug)]
+#[derive(Event, Debug, Clone)]
 pub struct ExPostgresEvent {
     payload: PostgresChangesPayload,
 }

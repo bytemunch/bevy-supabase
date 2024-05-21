@@ -350,6 +350,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-gotrue",
+ "bevy_crossbeam_event",
  "bevy_http_client",
  "crossbeam",
  "native-tls",
@@ -523,7 +524,8 @@ dependencies = [
 [[package]]
 name = "bevy_cosmic_edit"
 version = "0.20.0"
-source = "git+https://github.com/StaffEngineer/bevy_cosmic_edit#97517dccbd8d08aaeb043a0e87b95f3fbecdc545"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8d310c7992a62cf4896b2ee5edbb003827261b72b7ea8f1594ba3ecf050cfdc"
 dependencies = [
  "arboard",
  "bevy",
@@ -536,6 +538,16 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "bevy_crossbeam_event"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f283116b8ea74be21e44b6c66f7442a8d0192b3790cdcca0b036a9675ce33b3c"
+dependencies = [
+ "bevy",
+ "crossbeam-channel",
 ]
 
 [[package]]
