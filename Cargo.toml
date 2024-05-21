@@ -26,6 +26,6 @@ serde_json = "1.0.113"
 serde = { version = "1.0.197", features = ["derive"] }
 
 [dev-dependencies]
-bevy_cosmic_edit = { git = "https://github.com/StaffEngineer/bevy_cosmic_edit" }
+bevy_cosmic_edit = "0.20.0"
 # bevy_cosmic_edit = { path = "../bevy_cosmic_edit" }
 bevy_mod_debugdump = "0.10.0"

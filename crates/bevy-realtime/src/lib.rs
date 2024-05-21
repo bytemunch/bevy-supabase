@@ -13,7 +13,6 @@ use bevy::{
 };
 use channel::{ChannelBuilder, ChannelManager};
 use client::{ClientBuilder, ClientManager, ConnectionState, NextMessageError};
-use crossbeam::channel::{Receiver, TryRecvError};
 
 use crate::presence::bevy::{presence_untrack, update_presence_track};
 
@@ -23,33 +22,8 @@ pub struct Client(pub ClientManager);
 #[derive(Component, Deref, DerefMut)]
 pub struct BevyChannelBuilder(pub ChannelBuilder);
 
-#[derive(Component)]
-pub struct ChannelForwarder<E: Event> {
-    rx: Receiver<E>,
-}
-
 #[derive(Component, Deref, DerefMut)]
 pub struct Channel(pub ChannelManager);
-
-pub fn forwarder_recv<E: Event>(
-    // mut commands: Commands,
-    mut q_forwarders: Query<(Entity, &mut ChannelForwarder<E>)>,
-    mut evw: EventWriter<E>,
-) {
-    for (_e, c) in q_forwarders.iter_mut() {
-        match c.rx.try_recv() {
-            Ok(ev) => {
-                evw.send(ev);
-            }
-            Err(err) => match err {
-                TryRecvError::Empty => continue,
-                TryRecvError::Disconnected => {
-                    // commands.entity(e).despawn();
-                }
-            },
-        }
-    }
-}
 
 #[derive(Component)]
 pub struct BuildChannel;

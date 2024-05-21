@@ -2,37 +2,33 @@ pub mod bevy {
     use std::marker::PhantomData;
 
     use bevy::prelude::*;
-    use crossbeam::channel::unbounded;
+    use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
 
     use crate::{
-        client_ready, forwarder_recv,
+        client_ready,
         message::{
             payload::{PostgresChangesEvent, PostgresChangesPayload},
             postgres_change_filter::PostgresChangeFilter,
         },
-        BevyChannelBuilder, ChannelForwarder,
+        BevyChannelBuilder,
     };
 
     pub trait PostgresPayloadEvent {
         fn new(payload: PostgresChangesPayload) -> Self;
     }
 
-    pub trait AppExtend {
-        fn add_postgres_event<E: Event + PostgresPayloadEvent, F: Component>(
+    pub trait PostresEventApp {
+        fn add_postgres_event<E: Event + PostgresPayloadEvent + Clone, F: Component>(
             &mut self,
         ) -> &mut Self;
     }
 
-    impl AppExtend for App {
-        fn add_postgres_event<E: Event + PostgresPayloadEvent, F: Component>(
+    impl PostresEventApp for App {
+        fn add_postgres_event<E: Event + PostgresPayloadEvent + Clone, F: Component>(
             &mut self,
         ) -> &mut Self {
-            self.add_event::<E>().add_systems(
-                Update,
-                (postgres_forward::<E, F>, forwarder_recv::<E>)
-                    .chain()
-                    .run_if(client_ready),
-            )
+            self.add_crossbeam_event::<E>()
+                .add_systems(Update, (postgres_forward::<E, F>,).run_if(client_ready))
         }
     }
 
@@ -56,27 +52,22 @@ pub mod bevy {
         }
     }
 
-    // "consumes" PostgresForwarders, creates ChannelForwarders
-    pub fn postgres_forward<E: Event + PostgresPayloadEvent, T: Component>(
+    pub fn postgres_forward<E: Event + PostgresPayloadEvent + Clone, T: Component>(
         mut commands: Commands,
         mut q: Query<
             (Entity, &mut BevyChannelBuilder, &PostgresForwarder<E>),
             (Added<PostgresForwarder<E>>, With<T>),
         >,
+        sender: Res<CrossbeamEventSender<E>>,
     ) {
         for (e, mut cb, event) in q.iter_mut() {
-            let (tx, rx) = unbounded();
-
+            let s = sender.clone();
             cb.0.on_postgres_change(event.event.clone(), event.filter.clone(), move |payload| {
                 let ev = E::new(payload.clone());
-
-                tx.try_send(ev).unwrap();
+                s.send(ev);
             });
 
-            commands
-                .entity(e)
-                .insert(ChannelForwarder::<E> { rx })
-                .remove::<PostgresForwarder<E>>();
+            commands.entity(e).remove::<PostgresForwarder<E>>();
         }
     }
 }

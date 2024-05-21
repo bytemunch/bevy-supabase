@@ -231,13 +231,13 @@ pub mod bevy {
     use std::{collections::HashMap, marker::PhantomData};
 
     use bevy::prelude::*;
-    use crossbeam::channel::unbounded;
+    use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
     use serde_json::Value;
 
     use crate::{
-        client_ready, forwarder_recv,
+        client_ready,
         presence::{PresenceEvent, PresenceState},
-        BevyChannelBuilder, Channel, ChannelForwarder,
+        BevyChannelBuilder, Channel,
     };
 
     pub trait PresencePayloadEvent {
@@ -245,21 +245,17 @@ pub mod bevy {
     }
 
     pub trait AppExtend {
-        fn add_presence_event<E: Event + PresencePayloadEvent, F: Component>(
+        fn add_presence_event<E: Event + PresencePayloadEvent + Clone, F: Component>(
             &mut self,
         ) -> &mut Self;
     }
 
     impl AppExtend for App {
-        fn add_presence_event<E: Event + PresencePayloadEvent, F: Component>(
+        fn add_presence_event<E: Event + PresencePayloadEvent + Clone, F: Component>(
             &mut self,
         ) -> &mut Self {
-            self.add_event::<E>().add_systems(
-                Update,
-                (presence_forward::<E, F>, forwarder_recv::<E>)
-                    .chain()
-                    .run_if(client_ready),
-            )
+            self.add_crossbeam_event::<E>()
+                .add_systems(Update, (presence_forward::<E, F>,).run_if(client_ready))
         }
     }
 
@@ -278,27 +274,22 @@ pub mod bevy {
         }
     }
 
-    // "consumes" PresenceForwarders, creates ChannelForwarders
-    pub fn presence_forward<E: Event + PresencePayloadEvent, T: Component>(
+    pub fn presence_forward<E: Event + PresencePayloadEvent + Clone, T: Component>(
         mut commands: Commands,
         mut q: Query<
             (Entity, &mut BevyChannelBuilder, &PresenceForwarder<E>),
             (Added<PresenceForwarder<E>>, With<T>),
         >,
+        sender: Res<CrossbeamEventSender<E>>,
     ) {
         for (e, mut cb, event) in q.iter_mut() {
-            let (tx, rx) = unbounded();
-
+            let s = sender.clone();
             cb.0.on_presence(event.event.clone(), move |key, old, new| {
                 let ev = E::new(key, old, new);
-
-                tx.try_send(ev).unwrap();
+                s.send(ev);
             });
 
-            commands
-                .entity(e)
-                .insert(ChannelForwarder::<E> { rx })
-                .remove::<PresenceForwarder<E>>();
+            commands.entity(e).remove::<PresenceForwarder<E>>();
         }
     }
 

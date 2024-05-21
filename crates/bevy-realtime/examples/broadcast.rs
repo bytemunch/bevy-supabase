@@ -2,14 +2,14 @@ use std::{collections::HashMap, time::Duration};
 
 use bevy::prelude::*;
 use bevy_realtime::{
-    broadcast::bevy::{AppExtend as _, BroadcastForwarder, BroadcastPayloadEvent},
+    broadcast::bevy::{BroadcastEventApp, BroadcastForwarder, BroadcastPayloadEvent},
     client_ready,
     message::payload::{BroadcastConfig, BroadcastPayload},
     BevyChannelBuilder, BuildChannel, Channel, Client, RealtimePlugin,
 };
 use serde_json::Value;
 
-#[derive(Event, Debug, Default)]
+#[derive(Event, Debug, Default, Clone)]
 pub struct ExBroadcastEvent {
     payload: HashMap<String, Value>,
 }
