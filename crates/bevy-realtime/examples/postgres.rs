@@ -37,7 +37,9 @@ fn main() {
 fn setup(mut commands: Commands, client: Res<Client>) {
     commands.spawn(Camera2dBundle::default());
 
-    let channel = client.channel("test".into());
+    let mut channel = client.channel();
+
+    channel.topic("test");
 
     let mut c = commands.spawn(BevyChannelBuilder(channel));
 

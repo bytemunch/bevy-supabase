@@ -55,9 +55,9 @@ fn setup_channels(mut commands: Commands, client: Res<Client>, mut has_run: Loca
 
     *has_run = true;
 
-    let mut channel = client.channel("test".into());
+    let mut channel = client.channel();
 
-    channel.set_broadcast_config(BroadcastConfig {
+    channel.topic("test").set_broadcast_config(BroadcastConfig {
         broadcast_self: true,
         ack: false,
     });

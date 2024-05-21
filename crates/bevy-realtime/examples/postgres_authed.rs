@@ -54,7 +54,9 @@ fn setup(mut commands: Commands, client: Res<RealtimeClient>, auth: Res<AuthClie
         },
     );
 
-    let channel = client.channel("test".into());
+    let mut channel = client.channel();
+
+    channel.topic("test");
 
     let mut c = commands.spawn(BevyChannelBuilder(channel));
 

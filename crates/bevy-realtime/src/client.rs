@@ -132,7 +132,6 @@ pub struct ClientManager {
 
 pub enum ClientManagerMessage {
     Channel {
-        topic: String,
         tx: Sender<ChannelBuilder>,
     },
     AddChannel {
@@ -168,10 +167,10 @@ impl ClientManager {
     // These functions should be oneshots, that schedule oneshots
     //
     // These functions need to queue their requests in case the client is not ready
-    pub fn channel(&self, topic: String) -> ChannelBuilder {
+    pub fn channel(&self) -> ChannelBuilder {
         let (tx, rx) = unbounded();
 
-        match self.tx.send(ClientManagerMessage::Channel { topic, tx }) {
+        match self.tx.send(ClientManagerMessage::Channel { tx }) {
             Ok(()) => {
                 println!("Channel create message sent")
             }
@@ -257,7 +256,7 @@ impl Client {
     fn manager_recv(&mut self) -> Result<(), Box<dyn Error>> {
         while let Ok(message) = self.manager_rx.try_recv() {
             match message {
-                ClientManagerMessage::Channel { topic, tx } => tx.send(self.channel(topic))?,
+                ClientManagerMessage::Channel { tx } => tx.send(self.channel())?,
                 ClientManagerMessage::AddChannel { channel, tx } => {
                     tx.send(self.add_channel(channel))?
                 }
@@ -283,8 +282,8 @@ impl Client {
     }
 
     /// Returns a new [RealtimeChannelBuilder] instantiated with the provided `topic`
-    pub fn channel(&mut self, topic: impl Into<String>) -> ChannelBuilder {
-        ChannelBuilder::new(self).topic(topic)
+    pub fn channel(&mut self) -> ChannelBuilder {
+        ChannelBuilder::new(self)
     }
 
     /// Attempt to create a websocket connection with the server

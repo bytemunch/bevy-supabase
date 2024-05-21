@@ -393,7 +393,7 @@ impl ChannelBuilder {
     }
 
     /// Set the topic of the channel
-    pub fn topic(mut self, topic: impl Into<String>) -> Self {
+    pub fn topic(&mut self, topic: impl Into<String>) -> &mut Self {
         self.topic = format!("realtime:{}", topic.into());
         self
     }
