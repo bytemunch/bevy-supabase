@@ -11,6 +11,7 @@ use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
+use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
 use channel::{ChannelBuilder, ChannelManager};
 use client::{ClientBuilder, ClientManager, ConnectionState, NextMessageError};
 
@@ -94,6 +95,7 @@ impl Plugin for RealtimePlugin {
             apikey: self.apikey.clone(),
             endpoint: self.endpoint.clone(),
         })
+        .add_crossbeam_event::<ConnectionState>()
         .add_systems(PreStartup, (setup,))
         .add_systems(
             Update,
@@ -109,16 +111,24 @@ impl Plugin for RealtimePlugin {
     }
 }
 
-pub fn client_ready(client: Res<Client>) -> bool {
-    // TODO this work needs to happen on a thread too!
-    match client.connection_state() {
-        Ok(state) => match state {
-            ConnectionState::Open => true,
-            _ => false,
-        },
-        Err(e) => {
-            println!("got err {}", e);
-            false
-        }
+pub fn client_ready(
+    mut evr: EventReader<ConnectionState>,
+    mut last_state: Local<ConnectionState>,
+    mut rate_limiter: Local<usize>,
+    client: Res<Client>,
+    sender: Res<CrossbeamEventSender<ConnectionState>>,
+) -> bool {
+    if *rate_limiter % 30 != 0 {
+        return *last_state == ConnectionState::Open;
     }
+
+    *rate_limiter = 0;
+
+    client.connection_state(sender.clone()).unwrap_or(());
+
+    for ev in evr.read() {
+        *last_state = ev.clone();
+    }
+
+    *last_state == ConnectionState::Open
 }

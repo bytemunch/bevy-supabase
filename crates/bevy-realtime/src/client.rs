@@ -12,7 +12,9 @@ use std::{
 };
 
 use bevy::log::{debug, info};
-use crossbeam::channel::{unbounded, Receiver, RecvError, SendError, Sender, TryRecvError};
+use bevy::prelude::*;
+use bevy_crossbeam_event::CrossbeamEventSender;
+use crossbeam::channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
 use native_tls::TlsConnector;
 use tungstenite::{client, Message};
 use tungstenite::{
@@ -34,7 +36,7 @@ pub type Response = HttpResponse<Option<Vec<u8>>>;
 pub type WebSocket = WebSocketWrapper<MaybeTlsStream<TcpStream>>;
 
 /// Connection state of [RealtimeClient]
-#[derive(PartialEq, Debug, Default, Clone, Copy)]
+#[derive(PartialEq, Debug, Default, Clone, Copy, Event)]
 pub enum ConnectionState {
     /// Client wants to reconnect
     Reconnect,
@@ -141,7 +143,7 @@ pub enum ClientManagerMessage {
         token: String,
     },
     ConnectionState {
-        tx: Sender<ConnectionState>,
+        tx: CrossbeamEventSender<ConnectionState>,
     },
 }
 
@@ -152,18 +154,20 @@ impl ClientManager {
         }
     }
 
-    // TODO ClientManager should hold ready state
-    // all fns should consult ready state before trying to interact across async bounds
+    // TODO
+    // ClientManager should recieve request, and send a CrossbeamEventSender to the thread, which
+    // responds by sending the event back to the bevy world, readable by other systems
     //
+    // Each function should return an event UUID to be used in the response event
     // OR
-    //
-    // ClienManager should be polled each frame, and send events on reciept of data from across
-    // async bounds
-    //
+    // These functions should take a generic in order to read the correct data back
+    // - Event per channel topic is verbose and adds a LOT of events
     // OR
+    // These functions should take a oneshot SystemID to schedule when the data returns
+    // OR
+    // These functions should be oneshots, that schedule oneshots
     //
-    // Client should have a tx that sends to an rx on main thread, updating the connection state
-
+    // These functions need to queue their requests in case the client is not ready
     pub fn channel(&self, topic: String) -> ChannelBuilder {
         let (tx, rx) = unbounded();
 
@@ -188,19 +192,16 @@ impl ClientManager {
         rx.recv().unwrap()
     }
 
-    pub fn set_access_token(&self, token: String) {
-        self.tx
-            .send(ClientManagerMessage::SetAccessToken { token })
-            .unwrap();
+    pub fn set_access_token(&self, token: String) -> Result<(), SendError<ClientManagerMessage>> {
+        self.tx.send(ClientManagerMessage::SetAccessToken { token })
     }
 
-    pub fn connection_state(&self) -> Result<ConnectionState, RecvError> {
-        let (tx, rx) = unbounded();
+    pub fn connection_state(
+        &self,
+        sender: CrossbeamEventSender<ConnectionState>,
+    ) -> Result<(), SendError<ClientManagerMessage>> {
         self.tx
-            .send(ClientManagerMessage::ConnectionState { tx })
-            .unwrap();
-
-        rx.recv()
+            .send(ClientManagerMessage::ConnectionState { tx: sender })
     }
 }
 
@@ -264,7 +265,7 @@ impl Client {
                     self.access_token = token;
                 }
                 ClientManagerMessage::ConnectionState { tx } => {
-                    tx.send(self.connection_state)?;
+                    tx.send(self.connection_state);
                 }
             }
         }

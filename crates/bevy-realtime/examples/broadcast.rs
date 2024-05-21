@@ -68,7 +68,7 @@ fn setup_channels(mut commands: Commands, client: Res<Client>, mut has_run: Loca
 
     c.insert(BuildChannel);
 
-    println!("setup finished");
+    println!("channel setup finished");
 }
 
 fn bevy_setup(mut commands: Commands) {
@@ -89,6 +89,7 @@ fn tick_timer(mut timer: ResMut<TestTimer>, time: Res<Time>) {
     timer.0.tick(time.delta());
 }
 
+// This is here to check that bevy systems are running in parallel
 fn say_cheese(timer: Res<TestTimer>, mut count: Local<usize>) {
     if !timer.0.just_finished() {
         return;

@@ -75,7 +75,10 @@ fn setup_apikey(
 }
 
 fn update_realtime_access_token(client: Res<RealtimeClient>, auth: Res<Session>) {
-    client.0.set_access_token(auth.access_token.clone())
+    client
+        .0
+        .set_access_token(auth.access_token.clone())
+        .unwrap();
 }
 
 fn update_postgrest_access_token(mut client: ResMut<PostgrestClient>, auth: Res<Session>) {

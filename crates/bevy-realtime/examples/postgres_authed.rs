@@ -71,7 +71,9 @@ fn setup(mut commands: Commands, client: Res<RealtimeClient>, auth: Res<AuthClie
 }
 
 fn signed_in(client: Res<RealtimeClient>, auth: Res<AuthClient>) {
-    client.set_access_token(auth.access_token.clone().unwrap())
+    client
+        .set_access_token(auth.access_token.clone().unwrap())
+        .unwrap();
 }
 
 fn evr_postgres(mut evr: EventReader<ExPostgresEvent>) {
