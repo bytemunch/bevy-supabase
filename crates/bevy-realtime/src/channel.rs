@@ -484,24 +484,26 @@ impl ChannelBuilder {
     pub fn build(&self, client: &ClientManager) -> ChannelManager {
         let manager_channel = unbounded();
 
-        client.add_channel(RealtimeChannel {
-            topic: self.topic.clone(),
-            cdc_callbacks: self.cdc_callbacks.clone(),
-            broadcast_callbacks: self.broadcast_callbacks.clone(),
-            tx: self.tx.clone(),
-            manager_rx: manager_channel.1,
-            connection_state: ChannelState::Closed,
-            id: self.id,
-            join_payload: JoinPayload {
-                config: JoinConfig {
-                    broadcast: self.broadcast.clone(),
-                    presence: self.presence.clone(),
-                    postgres_changes: self.postgres_changes.clone(),
+        client
+            .add_channel(RealtimeChannel {
+                topic: self.topic.clone(),
+                cdc_callbacks: self.cdc_callbacks.clone(),
+                broadcast_callbacks: self.broadcast_callbacks.clone(),
+                tx: self.tx.clone(),
+                manager_rx: manager_channel.1,
+                connection_state: ChannelState::Closed,
+                id: self.id,
+                join_payload: JoinPayload {
+                    config: JoinConfig {
+                        broadcast: self.broadcast.clone(),
+                        presence: self.presence.clone(),
+                        postgres_changes: self.postgres_changes.clone(),
+                    },
+                    access_token: self.access_token.clone(),
                 },
-                access_token: self.access_token.clone(),
-            },
-            presence: Presence::from_channel_builder(self.presence_callbacks.clone()),
-        });
+                presence: Presence::from_channel_builder(self.presence_callbacks.clone()),
+            })
+            .unwrap();
 
         ChannelManager {
             tx: manager_channel.0,

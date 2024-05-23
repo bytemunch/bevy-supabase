@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_gotrue::{just_logged_in, AuthCreds, AuthPlugin, Client as AuthClient};
 use bevy_http_client::HttpClientPlugin;
 use bevy_realtime::{
+    channel::ChannelBuilder,
     message::{
         payload::{PostgresChangesEvent, PostgresChangesPayload},
         postgres_change_filter::PostgresChangeFilter,
@@ -36,16 +37,22 @@ fn main() {
                 endpoint: "http://127.0.0.1:54321/auth/v1".into(),
             },
         ))
-        .add_systems(Startup, (setup,))
+        .add_systems(Startup, (setup, sign_in))
         .add_systems(Update, (evr_postgres, signed_in.run_if(just_logged_in)))
         .add_postgres_event::<ExPostgresEvent, BevyChannelBuilder>();
 
     app.run()
 }
 
-fn setup(mut commands: Commands, client: Res<RealtimeClient>, auth: Res<AuthClient>) {
-    commands.spawn(Camera2dBundle::default());
+fn setup(world: &mut World) {
+    world.spawn(Camera2dBundle::default());
 
+    let callback = world.register_system(build_channel_callback);
+    let client = world.resource::<RealtimeClient>();
+    client.channel(callback).unwrap();
+}
+
+fn sign_in(mut commands: Commands, auth: Res<AuthClient>) {
     auth.sign_in(
         &mut commands,
         AuthCreds {
@@ -53,14 +60,14 @@ fn setup(mut commands: Commands, client: Res<RealtimeClient>, auth: Res<AuthClie
             password: "password".into(),
         },
     );
+}
 
-    let mut channel = client.channel();
+fn build_channel_callback(mut channel_builder: In<ChannelBuilder>, mut commands: Commands) {
+    channel_builder.topic("test");
 
-    channel.topic("test");
+    let mut channel = commands.spawn(BevyChannelBuilder(channel_builder.0));
 
-    let mut c = commands.spawn(BevyChannelBuilder(channel));
-
-    c.insert(PostgresForwarder::<ExPostgresEvent>::new(
+    channel.insert(PostgresForwarder::<ExPostgresEvent>::new(
         PostgresChangesEvent::All,
         PostgresChangeFilter {
             schema: "public".into(),
@@ -69,7 +76,7 @@ fn setup(mut commands: Commands, client: Res<RealtimeClient>, auth: Res<AuthClie
         },
     ));
 
-    c.insert(BuildChannel);
+    channel.insert(BuildChannel);
 }
 
 fn signed_in(client: Res<RealtimeClient>, auth: Res<AuthClient>) {

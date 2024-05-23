@@ -120,8 +120,8 @@ impl Plugin for RealtimePlugin {
     }
 }
 
-fn run_callbacks(mut commands: Commands, mut evr: EventReader<ChannelCallbackEvent>) {
-    for ev in evr.read() {
+fn run_callbacks(mut commands: Commands, mut channel_evr: EventReader<ChannelCallbackEvent>) {
+    for ev in channel_evr.read() {
         let (callback, builder) = ev.0.clone();
         commands.run_system_with_input(callback, builder);
     }

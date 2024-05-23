@@ -137,13 +137,12 @@ pub enum ClientManagerMessage {
     },
     AddChannel {
         channel: RealtimeChannel,
-        tx: Sender<()>,
     },
     SetAccessToken {
         token: String,
     },
     ConnectionState {
-        tx: CrossbeamEventSender<ConnectionState>,
+        sender: CrossbeamEventSender<ConnectionState>,
     },
 }
 
@@ -158,14 +157,7 @@ impl ClientManager {
     // ClientManager should recieve request, and send a CrossbeamEventSender to the thread, which
     // responds by sending the event back to the bevy world, readable by other systems
     //
-    // Each function should return an event UUID to be used in the response event
-    // OR
-    // These functions should take a generic in order to read the correct data back
-    // - Event per channel topic is verbose and adds a LOT of events
-    // OR
     // These functions should take a oneshot SystemID to schedule when the data returns
-    // OR
-    // These functions should be oneshots, that schedule oneshots
     //
     // These functions need to queue their requests in case the client is not ready
     pub fn channel(
@@ -175,13 +167,11 @@ impl ClientManager {
         self.tx.send(ClientManagerMessage::Channel { callback })
     }
 
-    pub fn add_channel(&self, channel: RealtimeChannel) -> () {
-        let (tx, rx) = unbounded();
-        self.tx
-            .send(ClientManagerMessage::AddChannel { channel, tx })
-            .unwrap();
-
-        rx.recv().unwrap()
+    pub fn add_channel(
+        &self,
+        channel: RealtimeChannel,
+    ) -> Result<(), SendError<ClientManagerMessage>> {
+        self.tx.send(ClientManagerMessage::AddChannel { channel })
     }
 
     pub fn set_access_token(&self, token: String) -> Result<(), SendError<ClientManagerMessage>> {
@@ -193,7 +183,7 @@ impl ClientManager {
         sender: CrossbeamEventSender<ConnectionState>,
     ) -> Result<(), SendError<ClientManagerMessage>> {
         self.tx
-            .send(ClientManagerMessage::ConnectionState { tx: sender })
+            .send(ClientManagerMessage::ConnectionState { sender })
     }
 }
 
@@ -260,14 +250,12 @@ impl Client {
                     self.channel_callback_event_sender
                         .send(ChannelCallbackEvent((callback, c)));
                 }
-                ClientManagerMessage::AddChannel { channel, tx } => {
-                    tx.send(self.add_channel(channel))?
-                }
+                ClientManagerMessage::AddChannel { channel } => self.add_channel(channel),
                 ClientManagerMessage::SetAccessToken { token } => {
                     self.access_token = token;
                 }
-                ClientManagerMessage::ConnectionState { tx } => {
-                    tx.send(self.connection_state);
+                ClientManagerMessage::ConnectionState { sender } => {
+                    sender.send(self.connection_state);
                 }
             }
         }

@@ -32,12 +32,12 @@ fn main() {
             "http://127.0.0.1:54321/realtime/v1".into(),
             std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap(),
         ),))
-        .add_systems(Startup, (bevy_setup,))
+        .add_systems(Startup, (setup,))
         .add_systems(
             Update,
             (
                 (tick_timer, say_cheese),
-                (send_every_second, evr_broadcast, setup_channels)
+                (send_every_second, evr_broadcast)
                     .chain()
                     .run_if(client_ready),
             ),
@@ -47,24 +47,24 @@ fn main() {
     app.run()
 }
 
-fn setup_channels(world: &mut World, mut has_run: Local<bool>) {
-    if *has_run {
-        return;
-    }
-    println!("channel setup s1 ");
+fn setup(world: &mut World) {
+    println!("setup s1 ");
 
-    let callback = world.register_system(setup_channels_s2);
+    world.spawn(Camera2dBundle::default());
+    world.insert_resource(TestTimer(Timer::new(
+        Duration::from_secs(1),
+        TimerMode::Repeating,
+    )));
 
+    let callback = world.register_system(build_channel_callback);
     let client = world.resource::<Client>();
-
-    *has_run = true;
 
     client.channel(callback).unwrap();
 
-    println!("channel setup s1 finished");
+    println!("setup s1 finished");
 }
 
-fn setup_channels_s2(mut channel_builder: In<ChannelBuilder>, mut commands: Commands) {
+fn build_channel_callback(mut channel_builder: In<ChannelBuilder>, mut commands: Commands) {
     println!("channel setup s2 ");
     channel_builder
         .topic("test")
@@ -79,14 +79,6 @@ fn setup_channels_s2(mut channel_builder: In<ChannelBuilder>, mut commands: Comm
 
     c.insert(BuildChannel);
     println!("channel setup s2 finished");
-}
-
-fn bevy_setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-    commands.insert_resource(TestTimer(Timer::new(
-        Duration::from_secs(1),
-        TimerMode::Repeating,
-    )));
 }
 
 fn evr_broadcast(mut evr: EventReader<ExBroadcastEvent>) {

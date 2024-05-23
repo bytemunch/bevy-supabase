@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_realtime::{
+    channel::ChannelBuilder,
     message::{
         payload::{PostgresChangesEvent, PostgresChangesPayload},
         postgres_change_filter::PostgresChangeFilter,
@@ -34,16 +35,21 @@ fn main() {
 
     app.run()
 }
-fn setup(mut commands: Commands, client: Res<Client>) {
-    commands.spawn(Camera2dBundle::default());
 
-    let mut channel = client.channel();
+fn setup(world: &mut World) {
+    world.spawn(Camera2dBundle::default());
 
-    channel.topic("test");
+    let callback = world.register_system(build_channel_callback);
+    let client = world.resource::<Client>();
+    client.channel(callback).unwrap();
+}
 
-    let mut c = commands.spawn(BevyChannelBuilder(channel));
+fn build_channel_callback(mut channel_builder: In<ChannelBuilder>, mut commands: Commands) {
+    channel_builder.topic("test");
 
-    c.insert(PostgresForwarder::<ExPostgresEvent>::new(
+    let mut channel = commands.spawn(BevyChannelBuilder(channel_builder.0));
+
+    channel.insert(PostgresForwarder::<ExPostgresEvent>::new(
         PostgresChangesEvent::All,
         PostgresChangeFilter {
             schema: "public".into(),
@@ -52,7 +58,7 @@ fn setup(mut commands: Commands, client: Res<Client>) {
         },
     ));
 
-    c.insert(BuildChannel);
+    channel.insert(BuildChannel);
 }
 
 fn evr_postgres(mut evr: EventReader<ExPostgresEvent>) {

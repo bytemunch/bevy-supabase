@@ -2,9 +2,12 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_realtime::{
+    channel::ChannelBuilder,
     message::payload::PresenceConfig,
-    presence::bevy::{AppExtend as _, PrescenceTrack, PresenceForwarder, PresencePayloadEvent},
-    presence::{PresenceEvent, PresenceState},
+    presence::{
+        bevy::{AppExtend as _, PrescenceTrack, PresenceForwarder, PresencePayloadEvent},
+        PresenceEvent, PresenceState,
+    },
     BevyChannelBuilder, BuildChannel, Client, RealtimePlugin,
 };
 
@@ -40,28 +43,35 @@ fn main() {
 
     app.run()
 }
-fn setup(mut commands: Commands, client: Res<Client>) {
-    commands.spawn(Camera2dBundle::default());
 
-    let mut channel = client.channel();
+fn setup(world: &mut World) {
+    world.spawn(Camera2dBundle::default());
 
-    channel.topic("test").set_presence_config(PresenceConfig {
-        key: Some("TestPresKey".into()),
-    });
+    let callback = world.register_system(build_channel_callback);
+    let client = world.resource::<Client>();
+    client.channel(callback).unwrap();
+}
 
-    let mut c = commands.spawn(BevyChannelBuilder(channel));
+fn build_channel_callback(mut channel_builder: In<ChannelBuilder>, mut commands: Commands) {
+    channel_builder
+        .topic("test")
+        .set_presence_config(PresenceConfig {
+            key: Some("TestPresKey".into()),
+        });
+
+    let mut channel = commands.spawn(BevyChannelBuilder(channel_builder.0));
 
     let mut payload = HashMap::new();
 
     payload.insert("Location".into(), "UK".into());
 
-    c.insert(PrescenceTrack { payload });
+    channel.insert(PrescenceTrack { payload });
 
-    c.insert(PresenceForwarder::<ExPresenceEvent>::new(
+    channel.insert(PresenceForwarder::<ExPresenceEvent>::new(
         PresenceEvent::Join,
     ));
 
-    c.insert(BuildChannel);
+    channel.insert(BuildChannel);
 }
 
 fn evr_presence(mut evr: EventReader<ExPresenceEvent>) {
