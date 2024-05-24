@@ -323,6 +323,7 @@ dependencies = [
 [[package]]
 name = "bevy-gotrue"
 version = "0.1.0"
+source = "git+https://github.com/bytemunch/bevy-gotrue#f35f66d0a2783e9fe6b010969d28d4b805113911"
 dependencies = [
  "bevy",
  "bevy_http_client",
@@ -334,10 +335,9 @@ dependencies = [
 [[package]]
 name = "bevy-postgrest"
 version = "0.1.0"
+source = "git+https://github.com/bytemunch/bevy-postgrest#9d588ea837154ea11dd9fc98f20a144ac98bd99b"
 dependencies = [
  "bevy",
- "bevy-gotrue",
- "bevy_http_client",
  "ehttp",
  "serde",
  "serde_json",
@@ -347,11 +347,10 @@ dependencies = [
 [[package]]
 name = "bevy-realtime"
 version = "0.1.0"
+source = "git+https://github.com/bytemunch/bevy-realtime#28bcf065b0fe3eefd37547c12e7c27f5a55474cd"
 dependencies = [
  "bevy",
- "bevy-gotrue",
  "bevy_crossbeam_event",
- "bevy_http_client",
  "crossbeam",
  "native-tls",
  "serde",
@@ -371,8 +370,6 @@ dependencies = [
  "bevy_cosmic_edit",
  "bevy_http_client",
  "bevy_mod_debugdump",
- "serde",
- "serde_json",
 ]
 
 [[package]]

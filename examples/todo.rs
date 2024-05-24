@@ -43,7 +43,7 @@ fn main() {
         DefaultPlugins,
         HttpClientPlugin,
         SupabasePlugin {
-            apikey: "NotNeededForLocal".into(),
+            apikey: std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap().into(),
             endpoint: "http://127.0.0.1:54321".into(),
             ..default()
         },

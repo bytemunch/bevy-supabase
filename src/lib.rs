@@ -30,11 +30,11 @@ pub struct SupabasePlugin {
 impl Plugin for SupabasePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            AuthPlugin::new(
-                self.auth_endpoint
-                    .clone()
-                    .unwrap_or(format!("{}/auth/v1", self.endpoint)),
-            ),
+            //AuthPlugin::new(
+            //    self.auth_endpoint
+            //        .clone()
+            //        .unwrap_or(format!("{}/auth/v1", self.endpoint)),
+            //),
             PostgrestPlugin::new(
                 self.postgrest_endpoint
                     .clone()
@@ -65,13 +65,13 @@ impl Plugin for SupabasePlugin {
 fn setup_apikey(
     supabase_client: Res<SupabaseClient>,
     mut db_client: ResMut<PostgrestClient>,
-    mut auth_client: ResMut<AuthClient>,
+    //mut auth_client: ResMut<AuthClient>,
 ) {
     // Add apikey headers to all internal plugins
     // Realtime is initialized with an api key so not needed here
     let apikey = supabase_client.apikey.clone();
     db_client.insert_header("apikey", apikey.clone());
-    auth_client.insert_header("apikey", apikey.clone());
+    //auth_client.insert_header("apikey", apikey.clone());
 }
 
 fn update_realtime_access_token(client: Res<RealtimeClient>, auth: Res<Session>) {

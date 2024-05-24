@@ -12,18 +12,12 @@ repository = "https://github.com/bytemunch/bevy-supabase"
 homepage = "https://github.com/bytemunch/bevy-supabase"
 documentation = "https://docs.rs/bevy-supabase"
 
-[workspace]
-members = ["crates/*"]
-resolver = "2"
-
 [dependencies]
 bevy_http_client = "0.5.1"
 bevy = "0.13.2"
-bevy-realtime = { version = "0.1.0", path = "./crates/bevy-realtime" }
-bevy-gotrue = { path = "./crates/bevy-gotrue" }
-bevy-postgrest = { path = "./crates/bevy-postgrest" }
-serde_json = "1.0.113"
-serde = { version = "1.0.197", features = ["derive"] }
+bevy-realtime = { git = "https://github.com/bytemunch/bevy-realtime" }
+bevy-gotrue = { git = "https://github.com/bytemunch/bevy-gotrue" }
+bevy-postgrest = { git = "https://github.com/bytemunch/bevy-postgrest" }
 
 [dev-dependencies]
 bevy_cosmic_edit = "0.20.0"
