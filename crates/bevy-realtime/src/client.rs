@@ -153,13 +153,6 @@ impl ClientManager {
         }
     }
 
-    // TODO
-    // ClientManager should recieve request, and send a CrossbeamEventSender to the thread, which
-    // responds by sending the event back to the bevy world, readable by other systems
-    //
-    // These functions should take a oneshot SystemID to schedule when the data returns
-    //
-    // These functions need to queue their requests in case the client is not ready
     pub fn channel(
         &self,
         callback: SystemId<ChannelBuilder>,
@@ -500,9 +493,6 @@ impl Client {
 
     /// Blocks the current thread until the channel with the provided `channel_id` has subscribed.
     pub fn block_until_subscribed(&mut self, channel_id: Uuid) -> Result<Uuid, ChannelState> {
-        // TODO ergonomically this would fit better as a function on RealtimeChannel but borrow
-        // checker
-
         let channel = self.channels.get_mut(&channel_id);
 
         let channel = channel.unwrap();
@@ -577,7 +567,6 @@ impl Client {
 
     /// The main step function for driving the [RealtimeClient]
     pub fn next_message(&mut self) -> Result<Vec<Uuid>, NextMessageError> {
-        // TODO run manager_recv fns until channels drained
         match self.manager_recv() {
             Ok(()) => {}
             Err(e) => debug!("client manager_recv error: {}", e),
@@ -731,7 +720,6 @@ impl Client {
             Ok(stream) => Ok(stream),
             Err(e) => match e {
                 HandshakeError::Interrupted(mid_hs) => {
-                    // TODO sleeping main thread bad
                     if self.reconnect_attempts < self.reconnect_max_attempts {
                         self.reconnect_attempts += 1;
                         let backoff = &self.reconnect_interval.0;
@@ -874,7 +862,7 @@ impl Client {
 
         self.messages_this_second = self
             .messages_this_second
-            .clone() // TODO do i need this clone? can i mutate in-place?
+            .clone()
             .into_iter()
             .filter(|st| now.duration_since(*st).unwrap_or_default() < Duration::from_secs(1))
             .collect();
@@ -941,12 +929,6 @@ impl ReconnectFn {
 impl Default for ReconnectFn {
     fn default() -> Self {
         Self(Box::new(backoff))
-    }
-}
-
-impl Debug for ReconnectFn {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("TODO reconnect fn debug")
     }
 }
 

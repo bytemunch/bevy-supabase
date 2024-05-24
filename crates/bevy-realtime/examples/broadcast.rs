@@ -46,8 +46,6 @@ fn main() {
 }
 
 fn setup(world: &mut World) {
-    println!("setup s1 ");
-
     world.spawn(Camera2dBundle::default());
 
     let callback = world.register_system(build_channel_callback);
@@ -57,12 +55,9 @@ fn setup(world: &mut World) {
 
     let test_callback = world.register_system(get_channel_state);
     world.insert_resource(TestCallback(test_callback));
-
-    println!("setup s1 finished");
 }
 
 fn build_channel_callback(mut channel_builder: In<ChannelBuilder>, mut commands: Commands) {
-    println!("channel setup s2 ");
     channel_builder
         .topic("test")
         .set_broadcast_config(BroadcastConfig {
@@ -75,7 +70,6 @@ fn build_channel_callback(mut channel_builder: In<ChannelBuilder>, mut commands:
     c.insert(BroadcastForwarder::<ExBroadcastEvent>::new("test".into()));
 
     c.insert(BuildChannel);
-    println!("channel setup s2 finished");
 }
 
 fn evr_broadcast(mut evr: EventReader<ExBroadcastEvent>) {
@@ -88,7 +82,6 @@ fn evr_broadcast(mut evr: EventReader<ExBroadcastEvent>) {
 struct TestCallback(pub SystemId<ChannelState>);
 
 fn test_get_channel_state(channel: Query<&Channel>, callback: Res<TestCallback>) {
-    println!("Get state...");
     for c in channel.iter() {
         c.channel_state(**callback).unwrap();
     }
