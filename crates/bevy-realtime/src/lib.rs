@@ -12,7 +12,7 @@ use bevy::{
     tasks::{AsyncComputeTaskPool, Task},
 };
 use bevy_crossbeam_event::{CrossbeamEventApp, CrossbeamEventSender};
-use channel::{ChannelBuilder, ChannelManager};
+use channel::{ChannelBuilder, ChannelManager, PresenceCallbackEvent};
 use client::{
     ChannelCallbackEvent, ClientBuilder, ClientManager, ConnectionState, NextMessageError,
 };
@@ -35,11 +35,12 @@ fn build_channels(
     mut commands: Commands,
     mut q: Query<(Entity, &mut BevyChannelBuilder), With<BuildChannel>>,
     mut client: ResMut<Client>,
+    presence_callback_event_sender: Res<CrossbeamEventSender<PresenceCallbackEvent>>,
 ) {
     for (e, c) in q.iter_mut() {
         commands.entity(e).remove::<BevyChannelBuilder>();
 
-        let channel = c.build(&mut client.0);
+        let channel = c.build(&mut client.0, presence_callback_event_sender.clone());
 
         channel.subscribe().unwrap();
         commands.entity(e).insert(Channel(channel));
@@ -104,6 +105,7 @@ impl Plugin for RealtimePlugin {
         })
         .add_crossbeam_event::<ConnectionState>()
         .add_crossbeam_event::<ChannelCallbackEvent>()
+        .add_crossbeam_event::<PresenceCallbackEvent>()
         .add_systems(PreStartup, (setup,))
         .add_systems(
             Update,
@@ -120,10 +122,19 @@ impl Plugin for RealtimePlugin {
     }
 }
 
-fn run_callbacks(mut commands: Commands, mut channel_evr: EventReader<ChannelCallbackEvent>) {
+fn run_callbacks(
+    mut commands: Commands,
+    mut channel_evr: EventReader<ChannelCallbackEvent>,
+    mut presence_evr: EventReader<PresenceCallbackEvent>,
+) {
     for ev in channel_evr.read() {
         let (callback, builder) = ev.0.clone();
         commands.run_system_with_input(callback, builder);
+    }
+
+    for ev in presence_evr.read() {
+        let (callback, state) = ev.0.clone();
+        commands.run_system_with_input(callback, state);
     }
 }
 

@@ -223,20 +223,6 @@ pub struct Client {
     channel_callback_event_sender: CrossbeamEventSender<ChannelCallbackEvent>,
 }
 
-impl Debug for Client {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO this is horrid
-        f.write_fmt(format_args!(
-            "{:?} {:?} {:?} {:?}  {}",
-            self.socket,
-            self.channels,
-            self.inbound_channel.0,
-            self.outbound_channel.0,
-            "TODO middleware debug fmt"
-        ))
-    }
-}
-
 #[derive(Event, Clone)]
 pub struct ChannelCallbackEvent(pub (SystemId<ChannelBuilder>, ChannelBuilder));
 
@@ -526,7 +512,11 @@ impl Client {
         }
 
         if channel.connection_state != ChannelState::Joining {
-            self.channels.get_mut(&channel_id).unwrap().subscribe();
+            self.channels
+                .get_mut(&channel_id)
+                .unwrap()
+                .subscribe()
+                .unwrap();
         }
 
         loop {
@@ -787,7 +777,7 @@ impl Client {
                     match self.connect() {
                         Ok(_) => {
                             for channel in self.channels.values_mut() {
-                                channel.subscribe();
+                                channel.subscribe().unwrap();
                             }
 
                             Ok(())
