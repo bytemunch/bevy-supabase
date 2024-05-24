@@ -1,4 +1,8 @@
-use bevy::log::debug;
+use bevy::{
+    ecs::{event::Event, system::SystemId},
+    log::debug,
+};
+use bevy_crossbeam_event::CrossbeamEventSender;
 use crossbeam::channel::{unbounded, Receiver, SendError, Sender};
 use serde_json::Value;
 use uuid::Uuid;
@@ -44,90 +48,59 @@ pub struct ChannelManager {
 }
 
 pub enum ChannelManagerMessage {
-    Broadcast {
-        payload: BroadcastPayload,
-        tx: Sender<Result<(), SendError<RealtimeMessage>>>,
-    },
-    Subscribe {
-        tx: Sender<()>,
-    },
-    Track {
-        payload: HashMap<String, Value>,
-        tx: Sender<()>,
-    },
-    Untrack {
-        tx: Sender<()>,
-    },
-    PresenceState {
-        tx: Sender<PresenceState>,
-    },
-    ChannelState {
-        tx: Sender<ChannelState>,
-    },
+    Broadcast { payload: BroadcastPayload },
+    Subscribe,
+    Track { payload: HashMap<String, Value> },
+    Untrack,
+    PresenceState { callback: SystemId<PresenceState> },
+    ChannelState { callback: SystemId<ChannelState> },
 }
 
 impl ChannelManager {
-    pub fn broadcast(&self, payload: BroadcastPayload) -> Result<(), SendError<RealtimeMessage>> {
-        let (tx, rx) = unbounded();
-
-        self.tx
-            .send(ChannelManagerMessage::Broadcast { payload, tx })
-            .unwrap();
-
-        rx.recv().unwrap()
+    pub fn broadcast(
+        &self,
+        payload: BroadcastPayload,
+    ) -> Result<(), SendError<ChannelManagerMessage>> {
+        self.tx.send(ChannelManagerMessage::Broadcast { payload })
     }
 
-    pub fn subscribe(&self) -> Result<(), crossbeam::channel::RecvError> {
-        let (tx, rx) = unbounded();
-
-        self.tx
-            .send(ChannelManagerMessage::Subscribe { tx })
-            .unwrap();
-
-        rx.recv()
+    pub fn subscribe(&self) -> Result<(), SendError<ChannelManagerMessage>> {
+        self.tx.send(ChannelManagerMessage::Subscribe)
     }
 
     pub fn track(
         &self,
         payload: HashMap<String, Value>,
-    ) -> Result<(), crossbeam::channel::RecvError> {
-        let (tx, rx) = unbounded();
-
-        self.tx
-            .send(ChannelManagerMessage::Track { payload, tx })
-            .unwrap();
-
-        rx.recv()
+    ) -> Result<(), SendError<ChannelManagerMessage>> {
+        self.tx.send(ChannelManagerMessage::Track { payload })
     }
 
-    pub fn untrack(&self) -> Result<(), crossbeam::channel::RecvError> {
-        let (tx, rx) = unbounded();
-
-        self.tx.send(ChannelManagerMessage::Untrack { tx }).unwrap();
-
-        rx.recv()
+    pub fn untrack(&self) -> Result<(), SendError<ChannelManagerMessage>> {
+        self.tx.send(ChannelManagerMessage::Untrack)
     }
 
-    pub fn presence_state(&self) -> Result<PresenceState, crossbeam::channel::RecvError> {
-        let (tx, rx) = unbounded();
-
+    pub fn presence_state(
+        &self,
+        callback: SystemId<PresenceState>,
+    ) -> Result<(), SendError<ChannelManagerMessage>> {
         self.tx
-            .send(ChannelManagerMessage::PresenceState { tx })
-            .unwrap();
-
-        rx.recv()
+            .send(ChannelManagerMessage::PresenceState { callback })
     }
 
-    pub fn channel_state(&self) -> Result<ChannelState, crossbeam::channel::RecvError> {
-        let (tx, rx) = unbounded();
-
+    pub fn channel_state(
+        &self,
+        callback: SystemId<ChannelState>,
+    ) -> Result<(), SendError<ChannelManagerMessage>> {
         self.tx
-            .send(ChannelManagerMessage::ChannelState { tx })
-            .unwrap();
-
-        rx.recv()
+            .send(ChannelManagerMessage::ChannelState { callback })
     }
 }
+
+#[derive(Event, Clone)]
+pub struct PresenceStateCallbackEvent(pub (SystemId<PresenceState>, PresenceState));
+
+#[derive(Event, Clone)]
+pub struct ChannelStateCallbackEvent(pub (SystemId<ChannelState>, ChannelState));
 
 /// Channel structure
 pub struct RealtimeChannel {
@@ -136,10 +109,13 @@ pub struct RealtimeChannel {
     pub(crate) id: Uuid,
     cdc_callbacks: HashMap<PostgresChangesEvent, Vec<CdcCallback>>,
     broadcast_callbacks: HashMap<String, Vec<BroadcastCallback>>,
-    tx: Sender<RealtimeMessage>,
-    manager_rx: Receiver<ChannelManagerMessage>,
     join_payload: JoinPayload,
     presence: Presence,
+    // sync bridge
+    tx: Sender<RealtimeMessage>,
+    manager_rx: Receiver<ChannelManagerMessage>,
+    presence_state_callback_event_sender: CrossbeamEventSender<PresenceStateCallbackEvent>,
+    channel_state_callback_event_sender: CrossbeamEventSender<ChannelStateCallbackEvent>,
 }
 
 // TODO channel options with broadcast + presence settings
@@ -148,18 +124,19 @@ impl RealtimeChannel {
     pub(crate) fn manager_recv(&mut self) -> Result<(), Box<dyn Error>> {
         while let Ok(message) = self.manager_rx.try_recv() {
             match message {
-                ChannelManagerMessage::Broadcast { payload, tx } => {
-                    tx.send(self.broadcast(payload))?
-                }
-                ChannelManagerMessage::Subscribe { tx } => tx.send(self.subscribe())?,
-                ChannelManagerMessage::Track { payload, tx } => {
-                    self.track(payload);
-                    // TODO errors
-                    tx.send(())?;
-                }
-                ChannelManagerMessage::Untrack { tx } => tx.send(self.untrack())?,
-                ChannelManagerMessage::PresenceState { tx } => tx.send(self.presence_state())?,
-                ChannelManagerMessage::ChannelState { tx } => tx.send(self.channel_state())?,
+                ChannelManagerMessage::Broadcast { payload } => self.broadcast(payload)?,
+                ChannelManagerMessage::Subscribe => self.subscribe()?,
+                ChannelManagerMessage::Track { payload } => self.track(payload)?,
+                ChannelManagerMessage::Untrack => self.untrack()?,
+                ChannelManagerMessage::PresenceState { callback } => self
+                    .presence_state_callback_event_sender
+                    .send(PresenceStateCallbackEvent((
+                        callback,
+                        self.presence_state(),
+                    ))),
+                ChannelManagerMessage::ChannelState { callback } => self
+                    .channel_state_callback_event_sender
+                    .send(ChannelStateCallbackEvent((callback, self.channel_state()))),
             }
         }
 
@@ -172,7 +149,7 @@ impl RealtimeChannel {
 
     /// Send a join request to the channel
     /// Does not block, for blocking behaviour use [RealtimeClient::block_until_subscribed()]
-    pub(crate) fn subscribe(&mut self) {
+    pub(crate) fn subscribe(&mut self) -> Result<(), SendError<RealtimeMessage>> {
         let join_message = RealtimeMessage {
             event: MessageEvent::PhxJoin,
             topic: self.topic.clone(),
@@ -182,7 +159,7 @@ impl RealtimeChannel {
 
         self.connection_state = ChannelState::Joining;
 
-        let _ = self.tx.send(join_message);
+        self.tx.send(join_message)
     }
 
     /// Leave the channel
@@ -215,25 +192,23 @@ impl RealtimeChannel {
     }
 
     /// Track provided state in Realtime Presence
-    fn track(&mut self, payload: HashMap<String, Value>) -> &mut RealtimeChannel {
-        let _ = self.send(RealtimeMessage {
+    fn track(&mut self, payload: HashMap<String, Value>) -> Result<(), SendError<RealtimeMessage>> {
+        self.send(RealtimeMessage {
             event: MessageEvent::Presence,
             topic: self.topic.clone(),
             payload: Payload::PresenceTrack(payload.into()),
             message_ref: None,
-        });
-
-        self
+        })
     }
 
     /// Sends a message to stop tracking this channel's presence
-    fn untrack(&mut self) {
-        let _ = self.send(RealtimeMessage {
+    fn untrack(&mut self) -> Result<(), SendError<RealtimeMessage>> {
+        self.send(RealtimeMessage {
             event: MessageEvent::Untrack,
             topic: self.topic.clone(),
             payload: Payload::Empty {},
             message_ref: None,
-        });
+        })
     }
 
     /// Send a [RealtimeMessage] on this channel
@@ -363,6 +338,7 @@ impl Debug for RealtimeChannel {
 /// Builder struct for [RealtimeChannel]
 ///
 /// Get access to this through [RealtimeClient::channel()]
+#[derive(Event, Clone)]
 pub struct ChannelBuilder {
     topic: String,
     access_token: String,
@@ -393,7 +369,7 @@ impl ChannelBuilder {
     }
 
     /// Set the topic of the channel
-    pub fn topic(mut self, topic: impl Into<String>) -> Self {
+    pub fn topic(&mut self, topic: impl Into<String>) -> &mut Self {
         self.topic = format!("realtime:{}", topic.into());
         self
     }
@@ -480,27 +456,36 @@ impl ChannelBuilder {
 
     /// Create the channel and pass ownership to provided [RealtimeClient], returning the channel
     /// id for later access through the client
-    pub fn build(&self, client: &ClientManager) -> ChannelManager {
+    pub fn build(
+        &self,
+        client: &ClientManager,
+        presence_state_callback_event_sender: CrossbeamEventSender<PresenceStateCallbackEvent>,
+        channel_state_callback_event_sender: CrossbeamEventSender<ChannelStateCallbackEvent>,
+    ) -> ChannelManager {
         let manager_channel = unbounded();
 
-        client.add_channel(RealtimeChannel {
-            topic: self.topic.clone(),
-            cdc_callbacks: self.cdc_callbacks.clone(),
-            broadcast_callbacks: self.broadcast_callbacks.clone(),
-            tx: self.tx.clone(),
-            manager_rx: manager_channel.1,
-            connection_state: ChannelState::Closed,
-            id: self.id,
-            join_payload: JoinPayload {
-                config: JoinConfig {
-                    broadcast: self.broadcast.clone(),
-                    presence: self.presence.clone(),
-                    postgres_changes: self.postgres_changes.clone(),
+        client
+            .add_channel(RealtimeChannel {
+                topic: self.topic.clone(),
+                cdc_callbacks: self.cdc_callbacks.clone(),
+                broadcast_callbacks: self.broadcast_callbacks.clone(),
+                tx: self.tx.clone(),
+                manager_rx: manager_channel.1,
+                connection_state: ChannelState::Closed,
+                id: self.id,
+                join_payload: JoinPayload {
+                    config: JoinConfig {
+                        broadcast: self.broadcast.clone(),
+                        presence: self.presence.clone(),
+                        postgres_changes: self.postgres_changes.clone(),
+                    },
+                    access_token: self.access_token.clone(),
                 },
-                access_token: self.access_token.clone(),
-            },
-            presence: Presence::from_channel_builder(self.presence_callbacks.clone()),
-        });
+                presence: Presence::from_channel_builder(self.presence_callbacks.clone()),
+                presence_state_callback_event_sender,
+                channel_state_callback_event_sender,
+            })
+            .unwrap();
 
         ChannelManager {
             tx: manager_channel.0,

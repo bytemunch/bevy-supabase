@@ -1,11 +1,14 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemId, prelude::*, time::common_conditions::on_timer};
 use bevy_realtime::{
+    channel::ChannelBuilder,
     message::payload::PresenceConfig,
-    presence::bevy::{AppExtend as _, PrescenceTrack, PresenceForwarder, PresencePayloadEvent},
-    presence::{PresenceEvent, PresenceState},
-    BevyChannelBuilder, BuildChannel, Client, RealtimePlugin,
+    presence::{
+        bevy::{AppExtend as _, PrescenceTrack, PresenceForwarder, PresencePayloadEvent},
+        PresenceEvent, PresenceState,
+    },
+    BevyChannelBuilder, BuildChannel, Channel, Client, RealtimePlugin,
 };
 
 #[allow(dead_code)]
@@ -35,33 +38,62 @@ fn main() {
             std::env::var("SUPABASE_LOCAL_ANON_KEY").unwrap(),
         ),))
         .add_systems(Startup, (setup,))
-        .add_systems(Update, (evr_presence).chain())
+        .add_systems(
+            Update,
+            (
+                evr_presence,
+                test_get_presence_state.run_if(on_timer(Duration::from_secs(1))),
+            ),
+        )
         .add_presence_event::<ExPresenceEvent, BevyChannelBuilder>();
 
     app.run()
 }
-fn setup(mut commands: Commands, client: Res<Client>) {
-    commands.spawn(Camera2dBundle::default());
 
-    let mut channel = client.channel("test".into());
+fn setup(world: &mut World) {
+    world.spawn(Camera2dBundle::default());
 
-    channel.set_presence_config(PresenceConfig {
-        key: Some("TestPresKey".into()),
-    });
+    let callback = world.register_system(build_channel_callback);
+    let client = world.resource::<Client>();
+    client.channel(callback).unwrap();
 
-    let mut c = commands.spawn(BevyChannelBuilder(channel));
+    let test_callback = world.register_system(get_presence_state);
+    world.insert_resource(TestCallback(test_callback));
+}
+
+fn build_channel_callback(mut channel_builder: In<ChannelBuilder>, mut commands: Commands) {
+    channel_builder
+        .topic("test")
+        .set_presence_config(PresenceConfig {
+            key: Some("TestPresKey".into()),
+        });
+
+    let mut channel = commands.spawn(BevyChannelBuilder(channel_builder.0));
 
     let mut payload = HashMap::new();
 
     payload.insert("Location".into(), "UK".into());
 
-    c.insert(PrescenceTrack { payload });
+    channel.insert(PrescenceTrack { payload });
 
-    c.insert(PresenceForwarder::<ExPresenceEvent>::new(
+    channel.insert(PresenceForwarder::<ExPresenceEvent>::new(
         PresenceEvent::Join,
     ));
 
-    c.insert(BuildChannel);
+    channel.insert(BuildChannel);
+}
+
+#[derive(Resource, Deref)]
+struct TestCallback(pub SystemId<PresenceState>);
+
+fn test_get_presence_state(channel: Query<&Channel>, callback: Res<TestCallback>) {
+    for c in channel.iter() {
+        c.presence_state(**callback).unwrap();
+    }
+}
+
+fn get_presence_state(state: In<PresenceState>) {
+    println!("State got! {:?}", *state);
 }
 
 fn evr_presence(mut evr: EventReader<ExPresenceEvent>) {

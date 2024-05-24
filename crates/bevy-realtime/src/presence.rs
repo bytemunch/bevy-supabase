@@ -139,7 +139,6 @@ impl Presence {
     }
 
     pub(crate) fn sync(&mut self, new_state: PresenceState) {
-        // TODO state? functional? Nah both mixed together. lol and also lmao even
         let joins: PresenceState = new_state
             .0
             .clone()
