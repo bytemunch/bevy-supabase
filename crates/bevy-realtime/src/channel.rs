@@ -53,7 +53,7 @@ pub enum ChannelManagerMessage {
     Track { payload: HashMap<String, Value> },
     Untrack,
     PresenceState { callback: SystemId<PresenceState> },
-    ChannelState { tx: Sender<ChannelState> },
+    ChannelState { callback: SystemId<ChannelState> },
 }
 
 impl ChannelManager {
@@ -87,19 +87,20 @@ impl ChannelManager {
             .send(ChannelManagerMessage::PresenceState { callback })
     }
 
-    pub fn channel_state(&self) -> Result<ChannelState, crossbeam::channel::RecvError> {
-        let (tx, rx) = unbounded();
-
+    pub fn channel_state(
+        &self,
+        callback: SystemId<ChannelState>,
+    ) -> Result<(), SendError<ChannelManagerMessage>> {
         self.tx
-            .send(ChannelManagerMessage::ChannelState { tx })
-            .unwrap();
-
-        rx.recv()
+            .send(ChannelManagerMessage::ChannelState { callback })
     }
 }
 
 #[derive(Event, Clone)]
-pub struct PresenceCallbackEvent(pub (SystemId<PresenceState>, PresenceState));
+pub struct PresenceStateCallbackEvent(pub (SystemId<PresenceState>, PresenceState));
+
+#[derive(Event, Clone)]
+pub struct ChannelStateCallbackEvent(pub (SystemId<ChannelState>, ChannelState));
 
 /// Channel structure
 pub struct RealtimeChannel {
@@ -113,7 +114,8 @@ pub struct RealtimeChannel {
     // sync bridge
     tx: Sender<RealtimeMessage>,
     manager_rx: Receiver<ChannelManagerMessage>,
-    presence_callback_event_sender: CrossbeamEventSender<PresenceCallbackEvent>,
+    presence_state_callback_event_sender: CrossbeamEventSender<PresenceStateCallbackEvent>,
+    channel_state_callback_event_sender: CrossbeamEventSender<ChannelStateCallbackEvent>,
 }
 
 // TODO channel options with broadcast + presence settings
@@ -127,9 +129,14 @@ impl RealtimeChannel {
                 ChannelManagerMessage::Track { payload } => self.track(payload)?,
                 ChannelManagerMessage::Untrack => self.untrack()?,
                 ChannelManagerMessage::PresenceState { callback } => self
-                    .presence_callback_event_sender
-                    .send(PresenceCallbackEvent((callback, self.presence_state()))),
-                ChannelManagerMessage::ChannelState { tx } => tx.send(self.channel_state())?,
+                    .presence_state_callback_event_sender
+                    .send(PresenceStateCallbackEvent((
+                        callback,
+                        self.presence_state(),
+                    ))),
+                ChannelManagerMessage::ChannelState { callback } => self
+                    .channel_state_callback_event_sender
+                    .send(ChannelStateCallbackEvent((callback, self.channel_state()))),
             }
         }
 
@@ -452,7 +459,8 @@ impl ChannelBuilder {
     pub fn build(
         &self,
         client: &ClientManager,
-        presence_callback_event_sender: CrossbeamEventSender<PresenceCallbackEvent>,
+        presence_state_callback_event_sender: CrossbeamEventSender<PresenceStateCallbackEvent>,
+        channel_state_callback_event_sender: CrossbeamEventSender<ChannelStateCallbackEvent>,
     ) -> ChannelManager {
         let manager_channel = unbounded();
 
@@ -474,7 +482,8 @@ impl ChannelBuilder {
                     access_token: self.access_token.clone(),
                 },
                 presence: Presence::from_channel_builder(self.presence_callbacks.clone()),
-                presence_callback_event_sender,
+                presence_state_callback_event_sender,
+                channel_state_callback_event_sender,
             })
             .unwrap();
 

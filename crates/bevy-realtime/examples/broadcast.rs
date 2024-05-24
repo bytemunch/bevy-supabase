@@ -1,9 +1,9 @@
 use std::{collections::HashMap, time::Duration};
 
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemId, prelude::*, time::common_conditions::on_timer};
 use bevy_realtime::{
     broadcast::bevy::{BroadcastEventApp, BroadcastForwarder, BroadcastPayloadEvent},
-    channel::ChannelBuilder,
+    channel::{ChannelBuilder, ChannelState},
     client_ready,
     message::payload::{BroadcastConfig, BroadcastPayload},
     BevyChannelBuilder, BuildChannel, Channel, Client, RealtimePlugin,
@@ -21,9 +21,6 @@ impl BroadcastPayloadEvent for ExBroadcastEvent {
     }
 }
 
-#[derive(Resource)]
-pub struct TestTimer(pub Timer);
-
 fn main() {
     let mut app = App::new();
 
@@ -35,12 +32,13 @@ fn main() {
         .add_systems(Startup, (setup,))
         .add_systems(
             Update,
-            (
-                (tick_timer, say_cheese),
-                (send_every_second, evr_broadcast)
-                    .chain()
-                    .run_if(client_ready),
-            ),
+            ((
+                (send_every_second, test_get_channel_state)
+                    .run_if(on_timer(Duration::from_secs(1))),
+                evr_broadcast,
+            )
+                .chain()
+                .run_if(client_ready),),
         )
         .add_broadcast_event::<ExBroadcastEvent, BevyChannelBuilder>();
 
@@ -51,15 +49,14 @@ fn setup(world: &mut World) {
     println!("setup s1 ");
 
     world.spawn(Camera2dBundle::default());
-    world.insert_resource(TestTimer(Timer::new(
-        Duration::from_secs(1),
-        TimerMode::Repeating,
-    )));
 
     let callback = world.register_system(build_channel_callback);
     let client = world.resource::<Client>();
 
     client.channel(callback).unwrap();
+
+    let test_callback = world.register_system(get_channel_state);
+    world.insert_resource(TestCallback(test_callback));
 
     println!("setup s1 finished");
 }
@@ -87,23 +84,21 @@ fn evr_broadcast(mut evr: EventReader<ExBroadcastEvent>) {
     }
 }
 
-fn tick_timer(mut timer: ResMut<TestTimer>, time: Res<Time>) {
-    timer.0.tick(time.delta());
+#[derive(Resource, Deref)]
+struct TestCallback(pub SystemId<ChannelState>);
+
+fn test_get_channel_state(channel: Query<&Channel>, callback: Res<TestCallback>) {
+    println!("Get state...");
+    for c in channel.iter() {
+        c.channel_state(**callback).unwrap();
+    }
 }
 
-// This is here to check that bevy systems are running in parallel
-fn say_cheese(timer: Res<TestTimer>, mut count: Local<usize>) {
-    if !timer.0.just_finished() {
-        return;
-    }
-    info!("che{}ese", "e".repeat(*count));
-    *count += 1;
+fn get_channel_state(state: In<ChannelState>) {
+    println!("State got! {:?}", *state);
 }
 
-fn send_every_second(q_channel: Query<&Channel>, timer: Res<TestTimer>) {
-    if !timer.0.just_finished() {
-        return;
-    }
+fn send_every_second(q_channel: Query<&Channel>) {
     let mut payload = HashMap::new();
     payload.insert("bevy?".into(), "bavy.".into());
     for c in q_channel.iter() {
