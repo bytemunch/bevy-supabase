@@ -13,13 +13,16 @@ homepage = "https://github.com/bytemunch/bevy-supabase"
 documentation = "https://docs.rs/bevy-supabase"
 
 [dependencies]
+bevy-realtime = { git = "https://github.com/bytemunch/bevy-realtime" }
 bevy_http_client = "0.5.1"
 bevy = "0.13.2"
-bevy-realtime = { git = "https://github.com/bytemunch/bevy-realtime" }
 bevy-gotrue = { git = "https://github.com/bytemunch/bevy-gotrue" }
 bevy-postgrest = { git = "https://github.com/bytemunch/bevy-postgrest" }
 
 [dev-dependencies]
-bevy_cosmic_edit = "0.20.0"
+bevy_cosmic_edit = { git = "https://github.com/Dimchikkk/bevy_cosmic_edit" }
 # bevy_cosmic_edit = { path = "../bevy_cosmic_edit" }
 bevy_mod_debugdump = "0.10.0"
+chrono = { version = "0.4.38", features = ["serde"] }
+uuid = { version = "1.8.0", features = ["serde"] }
+serde = { version = "1.0.197", features = ["derive"] }

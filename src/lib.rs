@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use bevy_gotrue::{AuthPlugin, Session};
 use bevy_postgrest::PostgrestPlugin;
-use bevy_realtime::RealtimePlugin;
+use bevy_realtime::{client::ConnectError, RealtimePlugin};
 
 pub use bevy_gotrue::{is_logged_in, just_logged_in, Client as AuthClient};
 pub use bevy_postgrest::Client as PostgrestClient;
@@ -30,11 +30,11 @@ pub struct SupabasePlugin {
 impl Plugin for SupabasePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            //AuthPlugin::new(
-            //    self.auth_endpoint
-            //        .clone()
-            //        .unwrap_or(format!("{}/auth/v1", self.endpoint)),
-            //),
+            AuthPlugin::new(
+                self.auth_endpoint
+                    .clone()
+                    .unwrap_or(format!("{}/auth/v1", self.endpoint)),
+            ),
             PostgrestPlugin::new(
                 self.postgrest_endpoint
                     .clone()
@@ -51,7 +51,7 @@ impl Plugin for SupabasePlugin {
             apikey: self.apikey.clone(),
             endpoint: self.endpoint.clone(),
         })
-        .add_systems(Startup, (setup_apikey,))
+        .add_systems(Startup, (setup_apikey, connect_realtime))
         .add_systems(
             Update,
             (
@@ -65,13 +65,28 @@ impl Plugin for SupabasePlugin {
 fn setup_apikey(
     supabase_client: Res<SupabaseClient>,
     mut db_client: ResMut<PostgrestClient>,
-    //mut auth_client: ResMut<AuthClient>,
+    mut auth_client: ResMut<AuthClient>,
 ) {
     // Add apikey headers to all internal plugins
     // Realtime is initialized with an api key so not needed here
     let apikey = supabase_client.apikey.clone();
     db_client.insert_header("apikey", apikey.clone());
-    //auth_client.insert_header("apikey", apikey.clone());
+    auth_client.insert_header("apikey", apikey.clone());
+}
+
+fn connect_realtime(world: &mut World) {
+    let callback = world.register_system(on_realtime_connect);
+    let client = world.resource::<RealtimeClient>();
+    let _ = client.connect(callback);
+}
+
+fn on_realtime_connect(In(result): In<Result<(), ConnectError>>) {
+    match result {
+        Ok(()) => {
+            info!("Connected realtime!")
+        }
+        Err(e) => error!("Couldn't connect to realtime: {:?}", e),
+    }
 }
 
 fn update_realtime_access_token(client: Res<RealtimeClient>, auth: Res<Session>) {
